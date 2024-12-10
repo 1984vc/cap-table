@@ -18,13 +18,11 @@ jobs:
         uses: actions/checkout@v1
         with:
           fetch-depth: 1
-      - name: Cache Dependencies
-        uses: actions/cache@v1
+      - uses: actions/setup-node@v4
         with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          node-version: 20
+          cache: 'pnpm'
+
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
       - run: cp appsscript.json ../.
