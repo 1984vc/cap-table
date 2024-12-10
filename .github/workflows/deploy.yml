@@ -25,9 +25,9 @@ jobs:
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
-      - run: yarn install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
       - name: Build for Apps Script
-        run: yarn run build
+        run: pnpm run build
       - run: cp appsscript.json ../.
       - name: Deploy Apps Script
         uses: daikikatsuragawa/clasp-action@v1.1.0

@@ -24,9 +24,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: "yarn"
+          cache: "pnpm"
 
-      - run: yarn install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -34,7 +34,7 @@ jobs:
           static_site_generator: next
 
       - name: Build with Vite
-        run: yarn build
+        run: pnpm build
 
       - name: Upload artifact 📡
         uses: actions/upload-pages-artifact@v3
