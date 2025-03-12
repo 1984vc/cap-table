@@ -78,7 +78,7 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
 
   return (
     <div
-      className={`w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-gray-800 rounded-lg ${isHovered ? 'mb-16' : ''} ${isDragging ? 'opacity-50' : ''}`}
+      className={`w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 ${isHovered ? 'mb-16' : ''} ${isDragging ? 'opacity-50' : ''}`}
       draggable={true}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
@@ -90,7 +90,7 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
     >
       <div className="flex justify-between items-center mb-3">
         <div className="flex items-center">
-          <button className="mr-2 text-gray-400 cursor-move focus:outline-none">
+          <button className="mr-2 text-gray-500 dark:text-gray-400 cursor-move focus:outline-none">
             <Bars4Icon className="inline" width={20} />
           </button>
           <input
@@ -100,7 +100,7 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
             value={data.name}
             onChange={handleInputChange}
             placeholder="Name"
-            className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
+            className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
           />
         </div>
         
@@ -119,9 +119,9 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
       
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
         <div>
-          <div className="text-gray-400 mb-1">Investment</div>
+          <div className="text-gray-500 dark:text-gray-400 mb-1">Investment</div>
           {data.disabledFields?.includes("investment") ? (
-            <div className="px-3 py-2 bg-gray-700 text-white rounded">${formatNumberWithCommas(data.investment)}</div>
+            <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">${formatNumberWithCommas(data.investment)}</div>
           ) : (
             <CurrencyInput
               type="text"
@@ -130,7 +130,7 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
               onValueChange={onValueChange}
               placeholder="Investment"
               autoComplete="off"
-              className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
+              className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
               prefix="$"
               allowDecimals={false}
             />
@@ -138,9 +138,9 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
         </div>
         
         <div>
-          <div className="text-gray-400 mb-1">Cap</div>
+          <div className="text-gray-500 dark:text-gray-400 mb-1">Cap</div>
           {data.disabledFields?.includes("cap") ? (
-            <div className="px-3 py-2 bg-gray-700 text-white rounded">${formatNumberWithCommas(Math.round(data.cap ?? 0))}</div>
+            <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">${formatNumberWithCommas(Math.round(data.cap ?? 0))}</div>
           ) : (
             <CurrencyInput
               type="text"
@@ -149,7 +149,7 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
               onValueChange={onValueChange}
               placeholder="Valuation Cap"
               autoComplete="off"
-              className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
+              className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
               prefix="$"
               decimalScale={0}
               allowDecimals={true}
@@ -160,7 +160,7 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
       
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
         <div>
-          <div className="text-gray-400 mb-1">
+          <div className="text-gray-500 dark:text-gray-400 mb-1">
             <TooltipComponent
               content="Discount to the price of the next round when available (typically 0%-25%). Note that the actual Post Money Safe uses a Discount Rate which is (1 - Discount). So if the Safe has a Discount Rate of 80% then the Discount is 20% and you should enter 20%"
             >
@@ -168,7 +168,7 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
             </TooltipComponent>
           </div>
           {data.disabledFields?.includes("discount") ? (
-            <div className="px-3 py-2 bg-gray-700 text-white rounded">{data.discount}%</div>
+            <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">{data.discount}%</div>
           ) : (
             <CurrencyInput
               type="text"
@@ -176,7 +176,7 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
               value={data.discount ?? "0"}
               onValueChange={onValueChange}
               placeholder="Discount %"
-              className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
+              className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
               autoComplete="off"
               prefix=""
               suffix="%"
@@ -190,12 +190,12 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
         </div>
         
         <div>
-          <div className="text-gray-400 mb-1">Type</div>
+          <div className="text-gray-500 dark:text-gray-400 mb-1">Type</div>
           <select
             name="conversionType"
             value={conversionType()}
             onChange={handleDropDownChange}
-            className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
+            className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
           >
             <option value="post">Post Money</option>
             <option value="pre">Pre Money</option>
@@ -205,8 +205,8 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
       </div>
       
       <div>
-        <div className="text-gray-400 mb-1">Ownership %</div>
-        <div className="px-3 py-2 bg-gray-700 text-white rounded">
+        <div className="text-gray-500 dark:text-gray-400 mb-1">Ownership %</div>
+        <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">
           <PercentNote pct={data.ownershipPct ?? 0} note={data.ownershipError?.reason} error={data.ownershipError?.type} />
         </div>
       </div>

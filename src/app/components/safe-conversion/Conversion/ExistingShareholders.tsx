@@ -74,10 +74,10 @@ const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
   }
 
   return (
-    <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-gray-800 rounded-lg">
+    <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
       <div className="flex justify-between items-center mb-3 inline-block">
         {disableNameEdit ? (
-          <span className="inline-block font-bold text-white">{data.name} {getTooltipButton()}</span>
+          <span className="inline-block font-bold text-gray-900 dark:text-white">{data.name} {getTooltipButton()}</span>
         ) : (
           <input
             type="text"
@@ -86,7 +86,7 @@ const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
             value={data.name}
             onChange={handleInputChange}
             placeholder="Common Shareholder Name"
-            className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
+            className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
           />
         )}
         
@@ -101,14 +101,14 @@ const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
       
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div>
-          <div className="text-gray-400 mb-1">Shares</div>
+          <div className="text-gray-500 dark:text-gray-400 mb-1">Shares</div>
           <CurrencyInput
             type="text"
             name="shares"
             value={data.shares}
             onValueChange={onValueChange}
             placeholder="Shares"
-            className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
+            className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
             prefix=""
             decimalScale={0}
             allowDecimals={false}
@@ -116,8 +116,8 @@ const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
         </div>
         
         <div>
-          <div className="text-gray-400 mb-1">Ownership %</div>
-          <div className="px-3 py-2 bg-gray-700 text-white rounded">{(ownership * 100).toFixed(2)}%</div>
+          <div className="text-gray-500 dark:text-gray-400 mb-1">Ownership %</div>
+          <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">{(ownership * 100).toFixed(2)}%</div>
         </div>
       </div>
     </div>

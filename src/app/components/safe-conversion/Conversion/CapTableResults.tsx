@@ -35,38 +35,38 @@ const CapTableCardItem: React.FC<CapTableRowItemProps> = ({shareholder, change})
   }
 
   return (
-    <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-gray-800 rounded-lg">
-      <div className="font-bold text-white mb-3">{shareholder.name}</div>
+    <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+      <div className="font-bold text-gray-900 dark:text-white mb-3">{shareholder.name}</div>
       
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {investment !== null && (
           <div>
-            <div className="text-gray-400 text-sm">Investment</div>
-            <div className="text-white">${formatNumberWithCommas(investment || 0)}</div>
+            <div className="text-gray-500 dark:text-gray-400 text-sm">Investment</div>
+            <div className="text-gray-900 dark:text-white">${formatNumberWithCommas(investment || 0)}</div>
           </div>
         )}
         
         {pps !== null && (
           <div>
-            <div className="text-gray-400 text-sm">PPS</div>
-            <div className="text-white">${formatNumberWithCommas(pps || 0)}</div>
+            <div className="text-gray-500 dark:text-gray-400 text-sm">PPS</div>
+            <div className="text-gray-900 dark:text-white">${formatNumberWithCommas(pps || 0)}</div>
           </div>
         )}
         
         {shareholder.shares && (
           <div>
-            <div className="text-gray-400 text-sm">Shares</div>
-            <div className="text-white">{formatNumberWithCommas(shareholder.shares || 0)}</div>
+            <div className="text-gray-500 dark:text-gray-400 text-sm">Shares</div>
+            <div className="text-gray-900 dark:text-white">{formatNumberWithCommas(shareholder.shares || 0)}</div>
           </div>
         )}
         
         <div>
-          <div className="text-gray-400 text-sm">Ownership</div>
+          <div className="text-gray-500 dark:text-gray-400 text-sm">Ownership</div>
           <div className="flex items-center">
-            <span className="text-white">{ownershipPct}</span>
+            <span className="text-gray-900 dark:text-white">{ownershipPct}</span>
             {hasChanges && (
               <span
-                className={`ml-2 ${changePct > 0 ? "text-green-500" : changePct < 0 ? "text-red-500" : "text-white"}`}
+                className={`ml-2 ${changePct > 0 ? "text-green-500" : changePct < 0 ? "text-red-500" : "text-gray-900 dark:text-white"}`}
               >
                 {changePct > 0 ? "+" : ""}{changePct}%
               </span>
@@ -81,28 +81,28 @@ const CapTableCardItem: React.FC<CapTableRowItemProps> = ({shareholder, change})
 // Total card for all screen sizes
 const TotalCard: React.FC<{totalRow: TotalCapTableRow}> = ({totalRow}) => {
   return (
-    <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-gray-900 rounded-lg border-2 border-gray-700">
-      <div className="font-bold text-white mb-3">Total</div>
+    <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-gray-100 dark:bg-gray-900 rounded-lg border-2 border-gray-300 dark:border-gray-700">
+      <div className="font-bold text-gray-900 dark:text-white mb-3">Total</div>
       
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div>
-          <div className="text-gray-400 text-sm">Investment</div>
-          <div className="text-white">${formatNumberWithCommas(totalRow.investment)}</div>
+          <div className="text-gray-500 dark:text-gray-400 text-sm">Investment</div>
+          <div className="text-gray-900 dark:text-white">${formatNumberWithCommas(totalRow.investment)}</div>
         </div>
         
         <div>
-          <div className="text-gray-400 text-sm">PPS</div>
-          <div className="text-white">-</div>
+          <div className="text-gray-500 dark:text-gray-400 text-sm">PPS</div>
+          <div className="text-gray-900 dark:text-white">-</div>
         </div>
         
         <div>
-          <div className="text-gray-400 text-sm">Shares</div>
-          <div className="text-white">{formatNumberWithCommas(totalRow.shares ?? 0)}</div>
+          <div className="text-gray-500 dark:text-gray-400 text-sm">Shares</div>
+          <div className="text-gray-900 dark:text-white">{formatNumberWithCommas(totalRow.shares ?? 0)}</div>
         </div>
         
         <div>
-          <div className="text-gray-400 text-sm">Ownership</div>
-          <div className="text-white">{(totalRow.ownershipPct * 100).toFixed(2)}%</div>
+          <div className="text-gray-500 dark:text-gray-400 text-sm">Ownership</div>
+          <div className="text-gray-900 dark:text-white">{(totalRow.ownershipPct * 100).toFixed(2)}%</div>
         </div>
       </div>
     </div>

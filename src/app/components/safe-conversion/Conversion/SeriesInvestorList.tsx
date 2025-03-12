@@ -39,7 +39,7 @@ const SeriesInvestorRow: React.FC<SeriesRowProps> = ({
   };
 
   return (
-    <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-gray-800 rounded-lg">
+    <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
       <div className="flex justify-between items-center mb-3">
         <input
           type="text"
@@ -48,7 +48,7 @@ const SeriesInvestorRow: React.FC<SeriesRowProps> = ({
           value={data.name}
           onChange={handleInputChange}
           placeholder="Series Investor Name"
-          className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
+          className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
         />
         
         <button
@@ -66,7 +66,7 @@ const SeriesInvestorRow: React.FC<SeriesRowProps> = ({
       
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div>
-          <div className="text-gray-400 mb-1">Investment</div>
+          <div className="text-gray-500 dark:text-gray-400 mb-1">Investment</div>
           <CurrencyInput
             type="text"
             name="investment"
@@ -74,15 +74,15 @@ const SeriesInvestorRow: React.FC<SeriesRowProps> = ({
             onValueChange={onValueChange}
             placeholder="Investment"
             autoComplete="off"
-            className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
+            className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
             prefix="$"
             decimalScale={0}
           />
         </div>
         
         <div>
-          <div className="text-gray-400 mb-1">Ownership %</div>
-          <div className="px-3 py-2 bg-gray-700 text-white rounded">{data.ownershipPct.toFixed(2)}%</div>
+          <div className="text-gray-500 dark:text-gray-400 mb-1">Ownership %</div>
+          <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">{data.ownershipPct.toFixed(2)}%</div>
         </div>
       </div>
     </div>

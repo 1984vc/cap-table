@@ -89,7 +89,7 @@ const Worksheet: React.FC<WorksheetProps> = ({conversionState, currentStateId, l
   }
 
   return (
-    <div className={"not-prose"}>
+    <div className={"not-prose mx-4"}>
       <div className="w-full flex justify-end gap-2">
         <Share url={getShareUrl(conversionState)}></Share>
         { localStorageWorks &&
@@ -128,8 +128,8 @@ const Worksheet: React.FC<WorksheetProps> = ({conversionState, currentStateId, l
         />
       </div>
 
-      <div className="pt-10 ml-10">
-        <div className="ml-2 mb-4 inline not-prose">
+      <div className="pt-10">
+        <div className="ml-2 pb-4 not-prose">
           { hasPricedRound ? 
             <span>Cap Table Before Priced Round</span>
             :
@@ -143,17 +143,17 @@ const Worksheet: React.FC<WorksheetProps> = ({conversionState, currentStateId, l
         />
       </div>
 
-      <div className="mt-12">
+      <div className="mt-12 mx-2">
       { hasPricedRound ?
         <button
           onClick={togglepriceRounds}
-          className="ml-10 px-4 py-2  bg-nt84blue text-white hover:bg-nt84bluedarker focus:outline-none focus:ring-blue-500"
+          className="w-full px-4 py-2 bg-nt84blue text-white hover:bg-nt84bluedarker focus:outline-none focus:ring-blue-500 rounded-lg"
         >
           Remove Priced Round
         </button> :
         <button
           onClick={togglepriceRounds}
-          className="ml-10 px-4 py-2  bg-nt84blue text-white hover:bg-nt84bluedarker focus:outline-none focus:ring-blue-500"
+          className="w-full px-4 py-2 bg-nt84blue text-white hover:bg-nt84bluedarker focus:outline-none focus:ring-blue-500 rounded-lg"
         >
           Add Priced Round
         </button>
@@ -242,10 +242,10 @@ const Worksheet: React.FC<WorksheetProps> = ({conversionState, currentStateId, l
         </div>
 
         <div className="pt-10">
-          <h2 className="text-2xl ml-10 font-bold mb-4 not-prose">Priced Round Overview</h2>
+          <h2 className="text-2xl font-bold mb-4 not-prose">Priced Round Overview</h2>
           {errors.safeError && <p className="text-red-500 text-xl">SAFE Conversion Error</p>}
           {!errors.safeError &&
-            <div className="ml-10">
+            <div className="">
               <PricedRound
                 {...getPricedRoundOverviewSelector({
                   ...conversionState,
