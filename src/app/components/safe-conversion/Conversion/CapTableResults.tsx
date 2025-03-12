@@ -5,7 +5,7 @@ export type CapTableProps = {
   rows: CapTableRow[];
   changes: number[];
   totalRow: TotalCapTableRow;
-} 
+}
 
 type CapTableRowItemProps = {
   shareholder: CapTableRow;
@@ -109,6 +109,77 @@ const TotalCard: React.FC<{totalRow: TotalCapTableRow}> = ({totalRow}) => {
   );
 };
 
+// Desktop table view
+const CapTableDesktopView: React.FC<CapTableProps> = ({ rows, changes, totalRow }) => {
+  return (
+    <div className="w-full max-w-full sm:max-w-[960px] mx-auto overflow-x-auto">
+      <table className="w-full border-collapse">
+        <thead className="bg-gray-100 dark:bg-gray-800">
+          <tr>
+            <th className="text-left p-3 border-b border-gray-200 dark:border-gray-700">Name</th>
+            <th className="text-right p-3 border-b border-gray-200 dark:border-gray-700">Investment</th>
+            <th className="text-right p-3 border-b border-gray-200 dark:border-gray-700">PPS</th>
+            <th className="text-right p-3 border-b border-gray-200 dark:border-gray-700">Shares</th>
+            <th className="text-right p-3 border-b border-gray-200 dark:border-gray-700">Ownership</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((shareholder, idx) => {
+            const investment = (shareholder.type === CapTableRowType.Safe || shareholder.type === CapTableRowType.Series) ? shareholder.investment : null;
+            const pps = (shareholder.type === CapTableRowType.Safe || shareholder.type === CapTableRowType.Series) ? shareholder.pps : null;
+            
+            const hasChanges = changes[idx] !== undefined;
+            const changePct = roundTo((changes[idx] ?? 0) * 100, 2);
+            let ownershipPct: string | undefined = shareholder.ownershipPct?.toFixed(2) + "%";
+            if (shareholder.ownershipError) {
+              if (shareholder.ownershipError.type === 'error') {
+                ownershipPct = "Error";
+              } else if (shareholder.ownershipError.type === 'tbd') {
+                ownershipPct = "TBD";
+              }
+            }
+            
+            return (
+              <tr key={`captablerow-${idx}`} className="border-b border-gray-200 dark:border-gray-700">
+                <td className="p-3 font-medium text-gray-900 dark:text-white">{shareholder.name}</td>
+                <td className="p-3 text-right text-gray-900 dark:text-white">
+                  {investment !== null ? `$${formatNumberWithCommas(investment || 0)}` : "-"}
+                </td>
+                <td className="p-3 text-right text-gray-900 dark:text-white">
+                  {pps !== null ? `$${formatNumberWithCommas(pps || 0)}` : "-"}
+                </td>
+                <td className="p-3 text-right text-gray-900 dark:text-white">
+                  {shareholder.shares ? formatNumberWithCommas(shareholder.shares) : "-"}
+                </td>
+                <td className="p-3 text-right">
+                  <div className="flex items-center justify-end">
+                    <span className="text-gray-900 dark:text-white">{ownershipPct}</span>
+                    {hasChanges && (
+                      <span
+                        className={`ml-2 ${changePct > 0 ? "text-green-500" : changePct < 0 ? "text-red-500" : "text-gray-900 dark:text-white"}`}
+                      >
+                        {changePct > 0 ? "+" : ""}{changePct}%
+                      </span>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+          {/* Total row */}
+          <tr className="bg-gray-100 dark:bg-gray-800 font-bold">
+            <td className="p-3 text-gray-900 dark:text-white">Total</td>
+            <td className="p-3 text-right text-gray-900 dark:text-white">${formatNumberWithCommas(totalRow.investment)}</td>
+            <td className="p-3 text-right text-gray-900 dark:text-white">-</td>
+            <td className="p-3 text-right text-gray-900 dark:text-white">{formatNumberWithCommas(totalRow.shares ?? 0)}</td>
+            <td className="p-3 text-right text-gray-900 dark:text-white">{(totalRow.ownershipPct * 100).toFixed(2)}%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
 export const CapTableResults: React.FC<CapTableProps> = (props) => {
   const {
     rows,
@@ -118,8 +189,8 @@ export const CapTableResults: React.FC<CapTableProps> = (props) => {
 
   return (
     <div>
-      {/* Card view for all screen sizes */}
-      <div>
+      {/* Card view for mobile, hidden on md and larger screens */}
+      <div className="md:hidden">
         {rows.map((shareholder, idx) => (
           <CapTableCardItem
             key={`captablecard-${idx}`}
@@ -128,6 +199,11 @@ export const CapTableResults: React.FC<CapTableProps> = (props) => {
           />
         ))}
         <TotalCard totalRow={totalRow} />
+      </div>
+      
+      {/* Table view for desktop, hidden on smaller screens */}
+      <div className="hidden md:block">
+        <CapTableDesktopView rows={rows} changes={changes} totalRow={totalRow} />
       </div>
     </div>
   );
