@@ -1,5 +1,6 @@
 import { formatNumberWithCommas } from "@library/utils/numberFormatting";
 import { BestFit } from "@library/conversion-solver";
+import { Button } from "@/components/ui/button";
 import QuestionMarkTooltipComponent from "@/components/tooltip/QuestionMarkTooltip";
 import { CapTableOwnershipError } from "@library/cap-table/types";
 
@@ -175,13 +176,14 @@ const PricedRound: React.FC<PricedRoundProps> = (props) => {
 
         <div className="flex flex-col bg-gray-100 p-8 text-center  relative dark:bg-nt84blue dark:text-gray-100">
           <div className="absolute text-nt84bluedarker bottom-0 left-0 p-2 text-xl">
-              <button
-                className="px-2 mr-2 text-nt84blue dark:text-gray-200"
+              <Button
+                variant="ghost"
+                className="px-2 mr-2 text-nt84blue dark:text-gray-200 p-0 h-auto"
                 name="decrement"
                 onClick={() => decrement("preMoney")}
               >
                 -
-              </button>
+              </Button>
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-200 bottom-0 z-10 absolute left-1/2 transform -translate-x-1/2 -translate-y-1/2">
             {preMoneyChange !== 0
@@ -190,13 +192,14 @@ const PricedRound: React.FC<PricedRoundProps> = (props) => {
               : ""}
           </div>
           <div className="absolute text-nt84bluedarker bottom-0 right-0 p-2 text-xl">
-              <button
-                className="px-2 mr-2 text-nt84blue dark:text-gray-200"
+              <Button
+                variant="ghost"
+                className="px-2 mr-2 text-nt84blue dark:text-gray-200 p-0 h-auto"
                 name="increment"
                 onClick={() => increment("preMoney")}
               >
                 +
-              </button>
+              </Button>
           </div>
           <dt className="text-sm font-semibold leading-6 text-gray-600 dark:text-gray-200">
             Pre Money
@@ -211,13 +214,14 @@ const PricedRound: React.FC<PricedRoundProps> = (props) => {
         {/* Investment */}
         <div className="flex flex-col bg-gray-100 p-8 text-center  relative dark:bg-nt84blue dark:text-gray-100">
           <div className="absolute text-nt84bluedarker bottom-0 left-0 p-2 text-xl">
-              <button
-                className="px-2 mr-2 text-nt84blue dark:text-gray-200"
+              <Button
+                variant="ghost"
+                className="px-2 mr-2 text-nt84blue dark:text-gray-200 p-0 h-auto"
                 name="decrement"
                 onClick={() => decrement("investment")}
               >
                 -
-              </button>
+              </Button>
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-200 bottom-0 z-10 absolute left-1/2 transform -translate-x-1/2 -translate-y-1/2">
             {investmentChange !== 0
@@ -226,13 +230,14 @@ const PricedRound: React.FC<PricedRoundProps> = (props) => {
               : ""}
           </div>
           <div className="absolute text-nt84bluedarker bottom-0 right-0 p-2 text-xl">
-              <button
-                className="px-2 mr-2 text-nt84blue dark:text-gray-200"
+              <Button
+                variant="ghost"
+                className="px-2 mr-2 text-nt84blue dark:text-gray-200 p-0 h-auto"
                 name="increment"
                 onClick={() => increment("investment")}
               >
                 +
-              </button>
+              </Button>
           </div>
           <dt className="text-sm font-semibold leading-6 text-gray-600 dark:text-gray-200">
             Investment
@@ -248,13 +253,14 @@ const PricedRound: React.FC<PricedRoundProps> = (props) => {
         { /* PostMoney */ }
         <div className="flex flex-col bg-gray-100 p-8 text-center  relative dark:bg-nt84blue dark:text-gray-100">
           <div className="absolute text-nt84bluedarker bottom-0 left-0 p-2 text-xl">
-              <button
-                className="px-2 mr-2 text-nt84blue dark:text-gray-200"
+              <Button
+                variant="ghost"
+                className="px-2 mr-2 text-nt84blue dark:text-gray-200 p-0 h-auto"
                 name="decrement"
                 onClick={() => decrement("preMoney")}
               >
                 -
-              </button>
+              </Button>
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-200 bottom-0 z-10 absolute left-1/2 transform -translate-x-1/2 -translate-y-1/2">
             {changes.postMoney !== 0
@@ -263,13 +269,14 @@ const PricedRound: React.FC<PricedRoundProps> = (props) => {
               : ""}
           </div>
           <div className="absolute text-nt84bluedarker bottom-0 right-0 p-2 text-xl">
-              <button
-                className="px-2 mr-2 text-nt84blue dark:text-gray-200"
+              <Button
+                variant="ghost"
+                className="px-2 mr-2 text-nt84blue dark:text-gray-200 p-0 h-auto"
                 name="increment"
                 onClick={() => increment("preMoney")}
               >
                 +
-              </button>
+              </Button>
           </div>
           <dt className="text-sm font-semibold leading-6 text-gray-600 dark:text-gray-200">
             Post Money
@@ -290,13 +297,14 @@ const PricedRound: React.FC<PricedRoundProps> = (props) => {
             </QuestionMarkTooltipComponent>
           </div>
           <div className="absolute text-nt84bluedarker bottom-0 left-0 p-2 text-xl">
-              <button
-                className="px-2 mr-2 text-nt84blue dark:text-gray-200"
+              <Button
+                variant="ghost"
+                className="px-2 mr-2 text-nt84blue dark:text-gray-200 p-0 h-auto"
                 name="decrement"
                 onClick={() => decrement("options")}
               >
                 -
-              </button>
+              </Button>
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-200 bottom-0 z-10 absolute left-1/2 transform -translate-x-1/2 -translate-y-1/2">
             {targetOptionsChange !== 0
@@ -305,13 +313,14 @@ const PricedRound: React.FC<PricedRoundProps> = (props) => {
               : ""}
           </div>
           <div className="absolute text-nt84bluedarker bottom-0 right-0 p-2 text-xl">
-              <button
-                className="px-2 mr-2 text-nt84blue dark:text-gray-200"
+              <Button
+                variant="ghost"
+                className="px-2 mr-2 text-nt84blue dark:text-gray-200 p-0 h-auto"
                 name="increment"
                 onClick={() => increment("options")}
               >
                 +
-              </button>
+              </Button>
           </div>
           <dt className="text-sm font-semibold leading-6 text-gray-600 dark:text-gray-200">
             Target Options

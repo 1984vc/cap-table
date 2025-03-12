@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ClockIcon } from "@heroicons/react/24/outline";
+import { Button } from "@/components/ui/button";
 import { getRecentStates } from "@/cap-table/state/localstorage";
 import { compressState } from "@/utils/stateCompression";
 import { IConversionStateData } from "@/cap-table/state/ConversionState";
@@ -77,12 +78,12 @@ const Finder: React.FC<{currentId: string, loadById: (id: string) => void}> = ({
 
   return (
     <div className="">
-      <button
-        className={`w-28 px-2 text-center cursor-pointer py-2  focus:outline-none focus:ring-2 text-white bg-nt84blue hover:bg-nt84bluedarker inline`}
+      <Button
+        className="w-28"
         onClick={() => setShowModal(true)}
       >
         {buttonText()}
-      </button>
+      </Button>
       {showModal && (
         <div className="fixed z-50 inset-0 flex items-center justify-center overflow-hidden">
           <div className="fixed inset-0 transition-opacity">
@@ -110,13 +111,14 @@ const Finder: React.FC<{currentId: string, loadById: (id: string) => void}> = ({
               </ul>
             </div>
             <div className="bg-gray-200 dark:bg-gray-800 px-4 py-3 sm:flex sm:flex-row-reverse">
-              <button
+              <Button
                 type="button"
-                className="inline-flex justify-center  border border-transparent shadow-sm px-4 py-2 bg-gray-500 text-base font-medium text-white hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+                variant="secondary"
+                className="sm:ml-3 sm:w-auto sm:text-sm"
                 onClick={() => setShowModal(false)}
               >
                 Close
-              </button>
+              </Button>
             </div>
           </div>
         </div>

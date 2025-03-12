@@ -1,5 +1,7 @@
 import React from "react";
 import CurrencyInput from "react-currency-input-field";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { RowsProps } from "./PropTypes";
 import { XCircleIcon } from "@heroicons/react/24/outline";
 import { SeriesCapTableRow } from "@library/cap-table/types";
@@ -41,27 +43,28 @@ const SeriesInvestorRow: React.FC<SeriesRowProps> = ({
   return (
     <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
       <div className="flex justify-between items-center mb-3">
-        <input
+        <Input
           type="text"
           name="name"
           autoComplete="off"
           value={data.name}
           onChange={handleInputChange}
           placeholder="Series Investor Name"
-          className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+          className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
         />
         
-        <button
+        <Button
           onClick={() => onDelete(data.id)}
           disabled={!data.allowDelete}
-          className={`ml-8 focus:outline-none ${
+          variant="ghost"
+          className={`ml-8 p-0 h-auto ${
             data.allowDelete
               ? "text-red-400 hover:text-red-500"
               : "text-gray-500 cursor-not-allowed"
           }`}
         >
           <XCircleIcon className="inline" width={20} />
-        </button>
+        </Button>
       </div>
       
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -74,9 +77,10 @@ const SeriesInvestorRow: React.FC<SeriesRowProps> = ({
             onValueChange={onValueChange}
             placeholder="Investment"
             autoComplete="off"
-            className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
             prefix="$"
             decimalScale={0}
+            customInput={Input}
           />
         </div>
         
@@ -107,12 +111,12 @@ const SeriesInvestorList: React.FC<RowsProps<SeriesProps>> = ({
       ))}
       
       <div className="w-full max-w-full sm:max-w-[960px] mx-auto">
-        <button
+        <Button
           onClick={onAddRow}
-          className="w-full px-4 py-2 bg-nt84blue text-white hover:bg-nt84bluedarker focus:outline-none focus:ring-blue-500 rounded-lg"
+          className="w-full"
         >
           + Add another Series Investor
-        </button>
+        </Button>
       </div>
     </div>
   );

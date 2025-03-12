@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import CurrencyInput from "react-currency-input-field";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 import {
   IConversionState,
@@ -95,12 +97,12 @@ const Worksheet: React.FC<WorksheetProps> = ({conversionState, currentStateId, l
         { localStorageWorks &&
           <Finder currentId={currentStateId} loadById={loadById}></Finder>
         }
-        <button
-          className={`w-28 px-2 text-center cursor-pointer py-2 focus:outline-none focus:ring-2 text-white bg-nt84blue hover:bg-nt84bluedarker inline`}
+        <Button
+          className="w-28"
           onClick={() => createNewState(false)}
         >
-          Reset<ArrowPathIcon className="inline pl-2" width={20} />
-        </button>
+          Reset<ArrowPathIcon className="ml-2" width={20} />
+        </Button>
       </div>
       <h1 className="text-2xl font-bold mb-12 pl-2">1 Existing Cap Table</h1>
       <div>
@@ -145,60 +147,57 @@ const Worksheet: React.FC<WorksheetProps> = ({conversionState, currentStateId, l
 
       <div className="mt-12 mx-2">
       { hasPricedRound ?
-        <button
+        <Button
           onClick={togglepriceRounds}
-          className="w-full px-4 py-2 bg-nt84blue text-white hover:bg-nt84bluedarker focus:outline-none focus:ring-blue-500 rounded-lg"
+          className="w-full"
         >
           Remove Priced Round
-        </button> :
-        <button
+        </Button> :
+        <Button
           onClick={togglepriceRounds}
-          className="w-full px-4 py-2 bg-nt84blue text-white hover:bg-nt84bluedarker focus:outline-none focus:ring-blue-500 rounded-lg"
+          className="w-full"
         >
           Add Priced Round
-        </button>
+        </Button>
       }
       </div>
 
       { hasPricedRound &&
       <div>
         <div>
+          <hr />
           <h1 className="text-2xl font-bold mb-12 mt-12 pl-2">3 New Round </h1>
-          <div className="flex space-x-4 ml-10">
-            <div className="w-1/4">
+          <div className="flex flex-wrap gap-4 ml-2">
+            <div className="w-full sm:w-1/5 md:w-1/5 lg:w-1/5">
               <h2 className="my-2 not-prose">Premoney Valuation</h2>
-              <div className="z-10 max-w-5xl items-center justify-between font-mono text-sm">
-                <CurrencyInput
-                  type="text"
-                  name="preMoney"
-                  value={preMoney}
-                  onValueChange={onValueChange("number")}
-                  placeholder="Investment"
-                  className="flex-1 w-full px-3 py-2 mr-4 border  focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  prefix="$"
-                  decimalScale={0}
-                  allowDecimals={false}
-                />
-              </div>
+              <CurrencyInput
+                type="text"
+                name="preMoney"
+                value={preMoney}
+                onValueChange={onValueChange("number")}
+                placeholder="Investment"
+                className="flex-1 w-full"
+                prefix="$"
+                decimalScale={0}
+                allowDecimals={false}
+                customInput={Input}
+              />
             </div>
-            <div className="w-1/4">
+            <div className="w-full sm:w-1/5 md:w-1/5 lg:w-1/5">
               <h2 className="my-2 not-prose">Post Money Valuation</h2>
-              <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-                <CurrencyInput
-                  type="text"
-                  name="totalSeriesInvestment"
-                  value={postMoney}
-                  onValueChange={onPostMoneyChange}
-                  className="flex-1 w-full px-3 py-2 border  focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  prefix="$"
-                  decimalScale={0}
-                  allowDecimals={false}
-                />
-              </div>
+              <CurrencyInput
+                type="text"
+                name="totalSeriesInvestment"
+                value={postMoney}
+                onValueChange={onPostMoneyChange}
+                className="flex-1 w-full"
+                prefix="$"
+                decimalScale={0}
+                allowDecimals={false}
+                customInput={Input}
+              />
             </div>
-          </div>
-          <div className="flex space-x-4 ml-10">
-            <div className="w-1/4">
+            <div className="w-full sm:w-1/5 md:w-1/5 lg:w-1/5">
               <h2 className="my-2 not-prose">Target Options Pool</h2>
               <CurrencyInput
                 type="text"
@@ -206,27 +205,29 @@ const Worksheet: React.FC<WorksheetProps> = ({conversionState, currentStateId, l
                 value={targetOptionsPool}
                 onValueChange={onValueChange("percent")}
                 placeholder="Target Options Pool %"
-                className="flex-1 w-full px-3 py-2 border  focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 w-full"
                 prefix=""
                 suffix="%"
                 decimalScale={1}
                 max={99}
                 allowDecimals={true}
+                customInput={Input}
               />
             </div>
-            <div className="w-1/4">
+            <div className="w-full sm:w-1/5 md:w-1/5 lg:w-1/5">
               <h2 className="my-2 not-prose">Additional Options</h2>
               <CurrencyInput
                 type="text"
                 name="additionalOptions"
                 value={pricedConversion?.additionalOptions}
-                className="flex-1 w-full px-3 py-2 bg-gray-100 dark:bg-inherit border  focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 w-full bg-gray-100 dark:bg-inherit"
                 prefix=""
                 decimalScale={0}
                 max={99}
                 maxLength={2}
                 allowDecimals={false}
                 disabled={true}
+                customInput={Input}
               />
             </div>
           </div>

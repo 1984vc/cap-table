@@ -13,12 +13,19 @@
     "test": "pnpm jest --maxWorkers=1 --maxConcurrency=1"
   },
   "dependencies": {
+    "@radix-ui/react-select": "^2.1.6",
+    "@radix-ui/react-slot": "^1.1.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.479.0",
     "lz-string": "^1.5.0",
     "react": "^18.3.1",
     "react-currency-input-field": "^3.8.0",
     "react-dom": "^18.3.1",
     "react-tooltip": "^5.28.0",
     "reselect": "^5.1.1",
+    "tailwind-merge": "^3.0.2",
+    "tailwindcss-animate": "^1.0.7",
     "webpack": "^5.93.0",
     "webpack-cli": "^5.1.4",
     "zustand": "^4.5.4"

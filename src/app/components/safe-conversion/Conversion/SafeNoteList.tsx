@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { formatNumberWithCommas } from "@library/utils/numberFormatting";
 import CurrencyInput from "react-currency-input-field";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { RowsProps } from "./PropTypes";
 import { Bars4Icon, XCircleIcon } from "@heroicons/react/24/outline";
 import PercentNote from "./PercentNote";
@@ -93,31 +95,32 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
           <button className="mr-2 text-gray-500 dark:text-gray-400 cursor-move focus:outline-none">
             <Bars4Icon className="inline" width={20} />
           </button>
-          <input
+          <Input
             type="text"
             name="name"
             autoComplete="off"
             value={data.name}
             onChange={handleInputChange}
             placeholder="Name"
-            className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
           />
         </div>
         
-        <button
+        <Button
           onClick={() => onDelete(data.id)}
           disabled={!data.allowDelete}
-          className={`focus:outline-none ${
+          variant="ghost"
+          className={`p-0 h-auto ${
             data.allowDelete
               ? "text-red-400 hover:text-red-500"
               : "text-gray-500 cursor-not-allowed"
           }`}
         >
           <XCircleIcon className="inline" width={20} />
-        </button>
+        </Button>
       </div>
       
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-3">
         <div>
           <div className="text-gray-500 dark:text-gray-400 mb-1">Investment</div>
           {data.disabledFields?.includes("investment") ? (
@@ -130,9 +133,10 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
               onValueChange={onValueChange}
               placeholder="Investment"
               autoComplete="off"
-              className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
               prefix="$"
               allowDecimals={false}
+              customInput={Input}
             />
           )}
         </div>
@@ -149,16 +153,14 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
               onValueChange={onValueChange}
               placeholder="Valuation Cap"
               autoComplete="off"
-              className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
               prefix="$"
               decimalScale={0}
               allowDecimals={true}
+              customInput={Input}
             />
           )}
         </div>
-      </div>
-      
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
         <div>
           <div className="text-gray-500 dark:text-gray-400 mb-1">
             <TooltipComponent
@@ -176,7 +178,7 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
               value={data.discount ?? "0"}
               onValueChange={onValueChange}
               placeholder="Discount %"
-              className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
               autoComplete="off"
               prefix=""
               suffix="%"
@@ -184,6 +186,7 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
               max={99}
               maxLength={2}
               allowDecimals={false}
+              customInput={Input}
             />
           )}
           {(data.discount ?? 0) > 99 && <p className="text-red-500 mt-1">Invalid discount</p>}
@@ -202,12 +205,12 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
             <option value="mfn">Uncapped MFN</option>
           </select>
         </div>
-      </div>
-      
-      <div>
-        <div className="text-gray-500 dark:text-gray-400 mb-1">Ownership %</div>
-        <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">
-          <PercentNote pct={data.ownershipPct ?? 0} note={data.ownershipError?.reason} error={data.ownershipError?.type} />
+
+        <div>
+          <div className="text-gray-500 dark:text-gray-400 mb-1">Ownership %</div>
+          <div className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">
+            <PercentNote pct={data.ownershipPct ?? 0} note={data.ownershipError?.reason} error={data.ownershipError?.type} />
+          </div>
         </div>
       </div>
     </div>
@@ -272,12 +275,12 @@ const SafeNoteList: React.FC<RowsProps<SAFEProps>> = ({
       ))}
       
       <div className="w-full max-w-full sm:max-w-[960px] mx-auto">
-        <button
+        <Button
           onClick={onAddRow}
-          className="w-full px-4 py-2 bg-nt84blue text-white hover:bg-nt84bluedarker focus:outline-none focus:ring-blue-500 rounded-lg"
+          className="w-full"
         >
           + Add another SAFE
-        </button>
+        </Button>
       </div>
     </div>
   );

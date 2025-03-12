@@ -2,6 +2,8 @@ import React from "react";
 import CurrencyInput from "react-currency-input-field";
 import { RowsProps } from "./PropTypes";
 import { XCircleIcon } from "@heroicons/react/24/outline";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import QuestionMarkTooltipComponent from "@/components/tooltip/QuestionMarkTooltip";
 import { CommonCapTableRow } from "@library/cap-table/types";
 
@@ -79,23 +81,24 @@ const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
         {disableNameEdit ? (
           <span className="inline-block font-bold text-gray-900 dark:text-white">{data.name} {getTooltipButton()}</span>
         ) : (
-          <input
+          <Input
             type="text"
             name="name"
             autoComplete="off"
             value={data.name}
             onChange={handleInputChange}
             placeholder="Common Shareholder Name"
-            className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
           />
         )}
         
         {allowDelete && (
-          <button
+          <Button
             onClick={() => { onDelete(data.id) }}
-            className="ml-8 text-red-400 hover:text-red-500 focus:outline-none">
+            variant="ghost"
+            className="ml-8 p-0 text-red-400 hover:text-red-500 h-auto">
             <XCircleIcon className="inline" width={20} />
-          </button>
+          </Button>
         )}
       </div>
       
@@ -108,10 +111,11 @@ const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
             value={data.shares}
             onValueChange={onValueChange}
             placeholder="Shares"
-            className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
             prefix=""
             decimalScale={0}
             allowDecimals={false}
+            customInput={Input}
           />
         </div>
         
@@ -168,12 +172,12 @@ const ExisingShareholderList: React.FC<
       )}
       
       <div className="w-full max-w-full sm:max-w-[960px] mx-auto">
-        <button
+        <Button
           onClick={onAddRow}
-          className="w-full px-4 py-2 bg-nt84blue text-white hover:bg-nt84bluedarker focus:outline-none focus:ring-blue-500 rounded-lg"
+          className="w-full"
         >
           + Add another Shareholder
-        </button>
+        </Button>
       </div>
     </div>
   );

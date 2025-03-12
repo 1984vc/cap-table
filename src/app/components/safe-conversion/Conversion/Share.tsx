@@ -1,5 +1,6 @@
 import { copyTextToClipboard } from "@/utils/clipboard";
 import { useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { BookmarkIcon, BookmarkSquareIcon } from "@heroicons/react/24/outline";
 
 const Share: React.FC<{ url: string }> = ({ url }) => {
@@ -53,12 +54,12 @@ const Share: React.FC<{ url: string }> = ({ url }) => {
 
   return (
     <div className="">
-      <button
-        className={`w-28 px-4 py-2  focus:outline-none focus:ring-2 text-white  ${isUpdatedRef.current ? "bg-nt84orange hover:bg-nt84orangedarker focus:ring-nt84orangedarker" : "bg-gray-400 hover:bg-gray-500 focus:ring-gray-300"}`}
+      <Button
+        className={`w-28 ${isUpdatedRef.current ? "bg-nt84orange hover:bg-nt84orangedarker focus:ring-nt84orangedarker" : "bg-gray-400 hover:bg-gray-500 focus:ring-gray-300"}`}
         onClick={() => setShowModal(true)}
       >
         {buttonText()}
-      </button>
+      </Button>
       {showModal && (
         <div className="fixed z-50 inset-0 flex items-center justify-center overflow-hidden">
           <div className="fixed inset-0 transition-opacity">
@@ -84,20 +85,21 @@ const Share: React.FC<{ url: string }> = ({ url }) => {
               </div>
             </div>
             <div className="bg-gray-200 dark:bg-gray-800 px-4 py-3 sm:flex sm:flex-row-reverse">
-              <button
+              <Button
                 type="button"
-                className="w-36 justify-center  border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:text-sm"
+                className="w-36 bg-blue-600 hover:bg-blue-700 sm:ml-3 sm:text-sm"
                 onClick={onClickCopy}
               >
                 {isCopied ? "Copied!" : "Copy"}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className="inline-flex justify-center  border border-transparent shadow-sm px-4 py-2 bg-gray-500 text-base font-medium text-white hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+                variant="secondary"
+                className="sm:ml-3 sm:w-auto sm:text-sm"
                 onClick={() => setShowModal(false)}
               >
                 Close
-              </button>
+              </Button>
             </div>
           </div>
         </div>
