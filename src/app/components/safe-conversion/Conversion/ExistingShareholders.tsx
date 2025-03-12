@@ -76,7 +76,15 @@ const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
   }
 
   return (
-    <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+    <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 relative">
+      {allowDelete && (
+        <Button
+          onClick={() => { onDelete(data.id) }}
+          variant="ghost"
+          className="p-0 text-red-400 hover:text-red-500 h-auto absolute top-2 right-2">
+          <XCircleIcon className="inline" width={20} />
+        </Button>
+      )}
       <div className="flex flex-col md:flex-row md:items-center md:space-x-4">
         <div className="mb-3 md:mb-0 md:flex-1">
           {disableNameEdit ? (
@@ -118,16 +126,6 @@ const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
           <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">{(ownership * 100).toFixed(2)}%</div>
         </div>
         
-        <div className="flex justify-end md:justify-center md:w-10">
-          {allowDelete && (
-            <Button
-              onClick={() => { onDelete(data.id) }}
-              variant="ghost"
-              className="p-0 text-red-400 hover:text-red-500 h-auto">
-              <XCircleIcon className="inline" width={20} />
-            </Button>
-          )}
-        </div>
       </div>
     </div>
   );

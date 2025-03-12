@@ -41,34 +41,34 @@ const SeriesInvestorRow: React.FC<SeriesRowProps> = ({
   };
 
   return (
-    <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-      <div className="flex justify-between items-center mb-3">
-        <Input
-          type="text"
-          name="name"
-          autoComplete="off"
-          value={data.name}
-          onChange={handleInputChange}
-          placeholder="Series Investor Name"
-          className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
-        />
-        
-        <Button
-          onClick={() => onDelete(data.id)}
-          disabled={!data.allowDelete}
-          variant="ghost"
-          className={`ml-8 p-0 h-auto ${
-            data.allowDelete
-              ? "text-red-400 hover:text-red-500"
-              : "text-gray-500 cursor-not-allowed"
-          }`}
-        >
-          <XCircleIcon className="inline" width={20} />
-        </Button>
-      </div>
+    <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 relative">
+      <Button
+        onClick={() => onDelete(data.id)}
+        disabled={!data.allowDelete}
+        variant="ghost"
+        className={`p-0 h-auto absolute top-2 right-2 ${
+          data.allowDelete
+            ? "text-red-400 hover:text-red-500"
+            : "text-gray-500 cursor-not-allowed"
+        }`}
+      >
+        <XCircleIcon className="inline" width={20} />
+      </Button>
       
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div>
+      <div className="flex flex-col md:flex-row md:items-center md:space-x-4">
+        <div className="mb-3 md:mb-0 md:flex-1">
+          <div className="text-gray-500 dark:text-gray-400 mb-1">Name</div>
+          <Input
+            type="text"
+            name="name"
+            autoComplete="off"
+            value={data.name}
+            onChange={handleInputChange}
+            placeholder="Series Investor Name"
+            className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+        </div>
+        <div className="mb-3 md:mb-0 md:flex-1">
           <div className="text-gray-500 dark:text-gray-400 mb-1">Investment</div>
           <CurrencyInput
             type="text"
@@ -84,7 +84,7 @@ const SeriesInvestorRow: React.FC<SeriesRowProps> = ({
           />
         </div>
         
-        <div>
+        <div className="mb-3 md:mb-0 md:flex-1">
           <div className="text-gray-500 dark:text-gray-400 mb-1">Ownership %</div>
           <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">{data.ownershipPct.toFixed(2)}%</div>
         </div>

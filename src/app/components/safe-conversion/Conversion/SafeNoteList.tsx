@@ -80,7 +80,7 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
 
   return (
     <div
-      className={`w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 ${isHovered ? 'mb-16' : ''} ${isDragging ? 'opacity-50' : ''}`}
+      className={`w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 ${isHovered ? 'mb-16' : ''} ${isDragging ? 'opacity-50' : ''} relative`}
       draggable={true}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
@@ -90,38 +90,38 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
         onDrop(e, dropIndex)
       }}
     >
-      <div className="flex justify-between items-center mb-3">
-        <div className="flex items-center">
-          <button className="mr-2 text-gray-500 dark:text-gray-400 cursor-move focus:outline-none">
-            <Bars4Icon className="inline" width={20} />
-          </button>
-          <Input
-            type="text"
-            name="name"
-            autoComplete="off"
-            value={data.name}
-            onChange={handleInputChange}
-            placeholder="Name"
-            className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
-          />
-        </div>
-        
-        <Button
-          onClick={() => onDelete(data.id)}
-          disabled={!data.allowDelete}
-          variant="ghost"
-          className={`p-0 h-auto ${
-            data.allowDelete
-              ? "text-red-400 hover:text-red-500"
-              : "text-gray-500 cursor-not-allowed"
-          }`}
-        >
-          <XCircleIcon className="inline" width={20} />
-        </Button>
-      </div>
+      <Button
+        onClick={() => onDelete(data.id)}
+        disabled={!data.allowDelete}
+        variant="ghost"
+        className={`p-0 h-auto absolute top-2 right-2 ${
+          data.allowDelete
+            ? "text-red-400 hover:text-red-500"
+            : "text-gray-500 cursor-not-allowed"
+        }`}
+      >
+        <XCircleIcon className="inline" width={20} />
+      </Button>
       
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-3 ml-7">
-        <div>
+      <div className="flex flex-col md:flex-row md:items-center md:space-x-4">
+        <button className="mr-2 text-gray-500 dark:text-gray-400 cursor-move focus:outline-none">
+          <Bars4Icon className="inline" width={20} />
+        </button>
+        <div className="mb-3 md:mb-0 md:w-[25%]">
+          <div className="text-gray-500 dark:text-gray-400 mb-1">Name</div>
+          <div className="flex items-center">
+            <Input
+              type="text"
+              name="name"
+              autoComplete="off"
+              value={data.name}
+              onChange={handleInputChange}
+              placeholder="Name"
+              className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+            />
+          </div>
+        </div>
+        <div className="mb-3 md:mb-0 md:w-[16%]">
           <div className="text-gray-500 dark:text-gray-400 mb-1">Investment</div>
           {data.disabledFields?.includes("investment") ? (
             <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">${formatNumberWithCommas(data.investment)}</div>
@@ -141,7 +141,7 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
           )}
         </div>
         
-        <div>
+        <div className="mb-3 md:mb-0 md:w-[16%]">
           <div className="text-gray-500 dark:text-gray-400 mb-1">Cap</div>
           {data.disabledFields?.includes("cap") ? (
             <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">${formatNumberWithCommas(Math.round(data.cap ?? 0))}</div>
@@ -161,7 +161,7 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
             />
           )}
         </div>
-        <div>
+        <div className="mb-3 md:mb-0 md:w-[10%]">
           <div className="text-gray-500 dark:text-gray-400 mb-1">
             <TooltipComponent
               content="Discount to the price of the next round when available (typically 0%-25%). Note that the actual Post Money Safe uses a Discount Rate which is (1 - Discount). So if the Safe has a Discount Rate of 80% then the Discount is 20% and you should enter 20%"
@@ -192,7 +192,7 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
           {(data.discount ?? 0) > 99 && <p className="text-red-500 mt-1">Invalid discount</p>}
         </div>
         
-        <div>
+        <div className="mb-3 md:mb-0 md:w-[18%]">
           <div className="text-gray-500 dark:text-gray-400 mb-1">Type</div>
           <select
             name="conversionType"
@@ -206,8 +206,8 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
           </select>
         </div>
 
-        <div>
-          <div className="text-gray-500 dark:text-gray-400 mb-1">Ownership %</div>
+        <div className="mb-3 md:mb-0 md:w-[12%]">
+          <div className="text-gray-500 dark:text-gray-400 mb-1">Ownership</div>
           <div className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">
             <PercentNote pct={data.ownershipPct ?? 0} note={data.ownershipError?.reason} error={data.ownershipError?.type} />
           </div>
