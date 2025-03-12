@@ -1,6 +1,7 @@
 import { formatNumberWithCommas } from "@library/utils/numberFormatting";
 import { BestFit } from "@library/conversion-solver";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import QuestionMarkTooltipComponent from "@/components/tooltip/QuestionMarkTooltip";
 import { CapTableOwnershipError } from "@library/cap-table/types";
 
@@ -96,242 +97,266 @@ const PricedRound: React.FC<PricedRoundProps> = (props) => {
     <div className="pt-2">
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
 
-        <div className="flex flex-col bg-gray-100 p-8 text-center  relative dark:bg-nt84blue dark:text-gray-100">
-          <div className="absolute text-nt84bluedarker dark:text-nt84lightblue top-0 right-0 p-2">
+        <Card className="relative flex flex-col h-36">
+          <div className="absolute text-nt84bluedarker dark:text-nt84lightblue top-0 right-0 p-2 z-10">
             <QuestionMarkTooltipComponent>
               <div className="max-w-72">
                 PPS: The Price Per Share (PPS) in a round is calculated by dividing the pre-money valuation by number of pre-money shares
               </div>
             </QuestionMarkTooltipComponent>
           </div>
+          <CardHeader className="pb-0 text-center">
+            <CardTitle className="text-xl font-semibold tracking-tight">
+              ${current.pricedConversion.pps.toFixed(5)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <div className="text-sm font-semibold text-gray-600 dark:text-gray-200">
+              PPS
+            </div>
+          </CardContent>
           <div className="text-sm text-gray-600 dark:text-gray-200 bottom-0 z-10 absolute left-1/2 transform -translate-x-1/2 -translate-y-1/2">
             {changes.pps !== 0
               ? ` (${changes.pps > 0 ? "+" : ""
               }$${formatNumberWithCommas(changes.pps)})`
               : ""}
           </div>
-          <dt className="text-sm font-semibold leading-6 text-gray-600 dark:text-gray-200">
-            PPS
-          </dt>
-          <dd className="order-first text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-200">
-            ${current.pricedConversion.pps.toFixed(5)}
-          </dd>
-        </div>
-        <div className="flex flex-col bg-gray-100 p-8 text-center  relative dark:bg-nt84blue dark:text-gray-100">
+        </Card>
+        <Card className="relative flex flex-col h-36">
+          <CardHeader className="pb-0 text-center">
+            <CardTitle className="text-xl font-semibold tracking-tight">
+              {formatNumberWithCommas(current.pricedConversion.newSharesIssued)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <div className="text-sm font-semibold text-gray-600 dark:text-gray-200">
+              New Shares Issued
+            </div>
+          </CardContent>
           <div className="text-sm text-gray-600 dark:text-gray-200 bottom-0 z-10 absolute left-1/2 transform -translate-x-1/2 -translate-y-1/2">
             {changes.newSharesIssued !== 0
               ? ` (${changes.newSharesIssued > 0 ? "+" : ""
               }${formatNumberWithCommas(changes.newSharesIssued)})`
               : ""}
           </div>
-          <dt className="text-sm font-semibold leading-6 text-gray-600 dark:text-gray-200">
-            New Shares Issued
-            </dt>
-          <dd className="order-first text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-200">
-            {formatNumberWithCommas(current.pricedConversion.newSharesIssued)}
-          </dd>
-        </div>
-        <div className="flex flex-col bg-gray-100 p-8 text-center  relative dark:bg-nt84blue dark:text-gray-100">
-          <div className="absolute text-nt84bluedarker dark:text-nt84lightblue top-0 right-0 p-2">
+        </Card>
+        <Card className="relative flex flex-col h-36">
+          <div className="absolute text-nt84bluedarker dark:text-nt84lightblue top-0 right-0 p-2 z-10">
             <QuestionMarkTooltipComponent>
               <div className="max-w-72">
                 Additional Options: these are the options created as part of the round to expand the option table. 
               </div>
             </QuestionMarkTooltipComponent>
           </div>
+          <CardHeader className="pb-0 text-center">
+            <CardTitle className="text-xl font-semibold tracking-tight">
+              {formatNumberWithCommas(current.pricedConversion.additionalOptions)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <div className="text-sm font-semibold text-gray-600 dark:text-gray-200">
+              Additional Options
+            </div>
+          </CardContent>
           <div className="text-sm text-gray-600 dark:text-gray-200 bottom-0 z-10 absolute left-1/2 transform -translate-x-1/2 -translate-y-1/2">
             {changes.additionalOptions !== 0
               ? ` (${changes.additionalOptions > 0 ? "+" : ""
               }${formatNumberWithCommas(changes.additionalOptions)})`
               : ""}
           </div>
-          <dt className="text-sm font-semibold leading-6 text-gray-600 dark:text-gray-200">
-            Additional Options
-          </dt>
-          <dd className="order-first text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-200">
-            {formatNumberWithCommas(current.pricedConversion.additionalOptions)}
-          </dd>
-        </div>
-        <div className="flex flex-col bg-gray-100 p-8 text-center  relative dark:bg-nt84blue dark:text-gray-100">
-          <div className="absolute text-nt84bluedarker dark:text-nt84lightblue top-0 right-0 p-2">
+        </Card>
+        <Card className="relative flex flex-col h-36">
+          <div className="absolute text-nt84bluedarker dark:text-nt84lightblue top-0 right-0 p-2 z-10">
             <QuestionMarkTooltipComponent>
               <div className="max-w-72">
                 Total Round Dilution: the percentage reduction in ownership for existing shareholders from a round, calculated as the number of new shares being issued from the transaction divided by the fully diluted shares after the transaction
               </div>
             </QuestionMarkTooltipComponent>
           </div>
+          <CardHeader className="pb-0 text-center">
+            <CardTitle className="text-xl font-semibold tracking-tight">
+              {current.totalRoundDilution.toFixed(2)}%
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <div className="text-sm font-semibold text-gray-600 dark:text-gray-200">
+              Total Round Dilution
+            </div>
+          </CardContent>
           <div className="text-sm text-gray-600 dark:text-gray-200 bottom-0 z-10 absolute left-1/2 transform -translate-x-1/2 -translate-y-1/2">
             {changes.dilution !== 0
               ? ` (${changes.dilution > 0 ? "+" : ""
               }${changes.dilution.toFixed(2)})`
               : ""}
           </div>
-          <dt className="text-sm font-semibold leading-6 text-gray-600 dark:text-gray-200">
-            Total Round Dilution
-          </dt>
-          <dd className="order-first text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-200">
-            {current.totalRoundDilution.toFixed(2)}%
-          </dd>
-        </div>
+        </Card>
 
-        <div className="flex flex-col bg-gray-100 p-8 text-center  relative dark:bg-nt84blue dark:text-gray-100">
-          <div className="absolute text-nt84bluedarker bottom-0 left-0 p-2 text-xl">
-              <Button
-                variant="ghost"
-                className="px-2 mr-2 text-nt84blue dark:text-gray-200 p-0 h-auto"
-                name="decrement"
-                onClick={() => decrement("preMoney")}
-              >
-                -
-              </Button>
-          </div>
-          <div className="text-sm text-gray-600 dark:text-gray-200 bottom-0 z-10 absolute left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            {preMoneyChange !== 0
-              ? ` (${preMoneyChange > 0 ? "+" : ""
-              }$${formatNumberWithCommas(current.preMoney - previous.preMoney)})`
-              : ""}
-          </div>
-          <div className="absolute text-nt84bluedarker bottom-0 right-0 p-2 text-xl">
-              <Button
-                variant="ghost"
-                className="px-2 mr-2 text-nt84blue dark:text-gray-200 p-0 h-auto"
-                name="increment"
-                onClick={() => increment("preMoney")}
-              >
-                +
-              </Button>
-          </div>
-          <dt className="text-sm font-semibold leading-6 text-gray-600 dark:text-gray-200">
-            Pre Money
-          </dt>
-          <dd className="order-first text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-200">
-            <span className="text-xl p-0 m-0">
+        <Card className="relative flex flex-col h-36">
+          <CardHeader className="pb-0 text-center">
+            <CardTitle className="text-xl font-semibold tracking-tight">
               ${formatNumberWithCommas(current.preMoney)}
-            </span>
-          </dd>
-        </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <div className="text-sm font-semibold text-gray-600 dark:text-gray-200">
+              Pre Money
+            </div>
+          </CardContent>
+          <CardFooter className="justify-between pt-0 mt-auto">
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full"
+              name="decrement"
+              onClick={() => decrement("preMoney")}
+            >
+              -
+            </Button>
+            <div className="text-sm text-gray-600 dark:text-gray-200 z-10">
+              {preMoneyChange !== 0
+                ? ` (${preMoneyChange > 0 ? "+" : ""
+                }$${formatNumberWithCommas(current.preMoney - previous.preMoney)})`
+                : ""}
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full"
+              name="increment"
+              onClick={() => increment("preMoney")}
+            >
+              +
+            </Button>
+          </CardFooter>
+        </Card>
 
         {/* Investment */}
-        <div className="flex flex-col bg-gray-100 p-8 text-center  relative dark:bg-nt84blue dark:text-gray-100">
-          <div className="absolute text-nt84bluedarker bottom-0 left-0 p-2 text-xl">
-              <Button
-                variant="ghost"
-                className="px-2 mr-2 text-nt84blue dark:text-gray-200 p-0 h-auto"
-                name="decrement"
-                onClick={() => decrement("investment")}
-              >
-                -
-              </Button>
-          </div>
-          <div className="text-sm text-gray-600 dark:text-gray-200 bottom-0 z-10 absolute left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            {investmentChange !== 0
-              ? ` (${investmentChange > 0 ? "+" : ""
-              }$${formatNumberWithCommas(investmentChange)})`
-              : ""}
-          </div>
-          <div className="absolute text-nt84bluedarker bottom-0 right-0 p-2 text-xl">
-              <Button
-                variant="ghost"
-                className="px-2 mr-2 text-nt84blue dark:text-gray-200 p-0 h-auto"
-                name="increment"
-                onClick={() => increment("investment")}
-              >
-                +
-              </Button>
-          </div>
-          <dt className="text-sm font-semibold leading-6 text-gray-600 dark:text-gray-200">
-            Investment
-          </dt>
-          <dd className="order-first text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-200">
-            <span className="text-xl p-0 m-0">
+        <Card className="relative flex flex-col h-36">
+          <CardHeader className="pb-0 text-center">
+            <CardTitle className="text-xl font-semibold tracking-tight">
               ${formatNumberWithCommas(current.totalSeriesInvestment)}
-            </span>
-          </dd>
-        </div>
-        { /* End Investment */ }
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <div className="text-sm font-semibold text-gray-600 dark:text-gray-200">
+              Investment
+            </div>
+          </CardContent>
+          <CardFooter className="justify-between pt-0 mt-auto">
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full"
+              name="decrement"
+              onClick={() => decrement("investment")}
+            >
+              -
+            </Button>
+            <div className="text-sm text-gray-600 dark:text-gray-200 z-10">
+              {investmentChange !== 0
+                ? ` (${investmentChange > 0 ? "+" : ""
+                }$${formatNumberWithCommas(investmentChange)})`
+                : ""}
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full"
+              name="increment"
+              onClick={() => increment("investment")}
+            >
+              +
+            </Button>
+          </CardFooter>
+        </Card>
+        {/* End Investment */}
 
-        { /* PostMoney */ }
-        <div className="flex flex-col bg-gray-100 p-8 text-center  relative dark:bg-nt84blue dark:text-gray-100">
-          <div className="absolute text-nt84bluedarker bottom-0 left-0 p-2 text-xl">
-              <Button
-                variant="ghost"
-                className="px-2 mr-2 text-nt84blue dark:text-gray-200 p-0 h-auto"
-                name="decrement"
-                onClick={() => decrement("preMoney")}
-              >
-                -
-              </Button>
-          </div>
-          <div className="text-sm text-gray-600 dark:text-gray-200 bottom-0 z-10 absolute left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            {changes.postMoney !== 0
-              ? ` (${changes.postMoney > 0 ? "+" : ""
-              }$${formatNumberWithCommas(changes.postMoney)})`
-              : ""}
-          </div>
-          <div className="absolute text-nt84bluedarker bottom-0 right-0 p-2 text-xl">
-              <Button
-                variant="ghost"
-                className="px-2 mr-2 text-nt84blue dark:text-gray-200 p-0 h-auto"
-                name="increment"
-                onClick={() => increment("preMoney")}
-              >
-                +
-              </Button>
-          </div>
-          <dt className="text-sm font-semibold leading-6 text-gray-600 dark:text-gray-200">
-            Post Money
-          </dt>
-          <dd className="order-first text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-200">
-            <span className="text-xl p-0 m-0">
+        {/* PostMoney */}
+        <Card className="relative flex flex-col h-36">
+          <CardHeader className="pb-0 text-center">
+            <CardTitle className="text-xl font-semibold tracking-tight">
               ${formatNumberWithCommas(current.postMoney)}
-            </span>
-          </dd>
-        </div>
-        { /* End PostMoney */ }
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <div className="text-sm font-semibold text-gray-600 dark:text-gray-200">
+              Post Money
+            </div>
+          </CardContent>
+          <CardFooter className="justify-between pt-0 mt-auto">
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full"
+              name="decrement"
+              onClick={() => decrement("preMoney")}
+            >
+              -
+            </Button>
+            <div className="text-sm text-gray-600 dark:text-gray-200 z-10">
+              {changes.postMoney !== 0
+                ? ` (${changes.postMoney > 0 ? "+" : ""
+                }$${formatNumberWithCommas(changes.postMoney)})`
+                : ""}
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full"
+              name="increment"
+              onClick={() => increment("preMoney")}
+            >
+              +
+            </Button>
+          </CardFooter>
+        </Card>
+        {/* End PostMoney */}
 
-        { /* Target Options */ }
-        <div className="flex flex-col bg-gray-100 p-8 text-center  relative dark:bg-nt84blue dark:text-gray-100">
-          <div className="absolute text-nt84bluedarker dark:text-nt84lightblue top-0 right-0 p-2">
+        {/* Target Options */}
+        <Card className="relative flex flex-col h-36">
+          <div className="absolute text-nt84bluedarker dark:text-nt84lightblue top-0 right-0 p-2 z-10">
             <QuestionMarkTooltipComponent>
               The target percentage of the new options pool, after the priced round
             </QuestionMarkTooltipComponent>
           </div>
-          <div className="absolute text-nt84bluedarker bottom-0 left-0 p-2 text-xl">
-              <Button
-                variant="ghost"
-                className="px-2 mr-2 text-nt84blue dark:text-gray-200 p-0 h-auto"
-                name="decrement"
-                onClick={() => decrement("options")}
-              >
-                -
-              </Button>
-          </div>
-          <div className="text-sm text-gray-600 dark:text-gray-200 bottom-0 z-10 absolute left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            {targetOptionsChange !== 0
-              ? ` (${targetOptionsChange > 0 ? "+" : ""
-              }${currentTargetOptionsChange * 100})`
-              : ""}
-          </div>
-          <div className="absolute text-nt84bluedarker bottom-0 right-0 p-2 text-xl">
-              <Button
-                variant="ghost"
-                className="px-2 mr-2 text-nt84blue dark:text-gray-200 p-0 h-auto"
-                name="increment"
-                onClick={() => increment("options")}
-              >
-                +
-              </Button>
-          </div>
-          <dt className="text-sm font-semibold leading-6 text-gray-600 dark:text-gray-200">
-            Target Options
-          </dt>
-          <dd className="order-first text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-200">
-            <span className="text-xl p-0 m-0">
+          <CardHeader className="pb-0 text-center">
+            <CardTitle className="text-xl font-semibold tracking-tight">
               {(currentTargetOptions * 100).toFixed(2)}%
-            </span>
-          </dd>
-        </div>
-        { /* End Target Options */ }
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <div className="text-sm font-semibold text-gray-600 dark:text-gray-200">
+              Target Options
+            </div>
+          </CardContent>
+          <CardFooter className="justify-between pt-0 mt-auto">
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full"
+              name="decrement"
+              onClick={() => decrement("options")}
+            >
+              -
+            </Button>
+            <div className="text-sm text-gray-600 dark:text-gray-200 z-10">
+              {targetOptionsChange !== 0
+                ? ` (${targetOptionsChange > 0 ? "+" : ""
+                }${currentTargetOptionsChange * 100})`
+                : ""}
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full"
+              name="increment"
+              onClick={() => increment("options")}
+            >
+              +
+            </Button>
+          </CardFooter>
+        </Card>
+        {/* End Target Options */}
 
       </div>
     </div>

@@ -76,34 +76,28 @@ const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
   }
 
   return (
-    <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-      <div className="flex justify-between items-center mb-3 inline-block">
-        {disableNameEdit ? (
-          <span className="inline-block font-bold text-gray-900 dark:text-white">{data.name} {getTooltipButton()}</span>
-        ) : (
-          <Input
-            type="text"
-            name="name"
-            autoComplete="off"
-            value={data.name}
-            onChange={handleInputChange}
-            placeholder="Common Shareholder Name"
-            className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
-          />
-        )}
+    <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+      <div className="flex flex-col md:flex-row md:items-center md:space-x-4">
+        <div className="mb-3 md:mb-0 md:flex-1">
+          {disableNameEdit ? (
+            <span className="inline-block font-bold text-gray-900 dark:text-white">{data.name} {getTooltipButton()}</span>
+          ) : (
+            <div>
+              <div className="text-gray-500 dark:text-gray-400 mb-1">Name</div>
+              <Input
+                type="text"
+                name="name"
+                autoComplete="off"
+                value={data.name}
+                onChange={handleInputChange}
+                placeholder="Common Shareholder Name"
+                className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+          )}
+        </div>
         
-        {allowDelete && (
-          <Button
-            onClick={() => { onDelete(data.id) }}
-            variant="ghost"
-            className="ml-8 p-0 text-red-400 hover:text-red-500 h-auto">
-            <XCircleIcon className="inline" width={20} />
-          </Button>
-        )}
-      </div>
-      
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div>
+        <div className="mb-3 md:mb-0 md:flex-1">
           <div className="text-gray-500 dark:text-gray-400 mb-1">Shares</div>
           <CurrencyInput
             type="text"
@@ -119,9 +113,20 @@ const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
           />
         </div>
         
-        <div>
+        <div className="mb-3 md:mb-0 md:flex-1">
           <div className="text-gray-500 dark:text-gray-400 mb-1">Ownership %</div>
           <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">{(ownership * 100).toFixed(2)}%</div>
+        </div>
+        
+        <div className="flex justify-end md:justify-center md:w-10">
+          {allowDelete && (
+            <Button
+              onClick={() => { onDelete(data.id) }}
+              variant="ghost"
+              className="p-0 text-red-400 hover:text-red-500 h-auto">
+              <XCircleIcon className="inline" width={20} />
+            </Button>
+          )}
         </div>
       </div>
     </div>

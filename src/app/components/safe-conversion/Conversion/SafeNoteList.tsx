@@ -120,7 +120,7 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
         </Button>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-3">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-3 ml-7">
         <div>
           <div className="text-gray-500 dark:text-gray-400 mb-1">Investment</div>
           {data.disabledFields?.includes("investment") ? (
