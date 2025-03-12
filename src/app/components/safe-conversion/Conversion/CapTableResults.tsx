@@ -18,7 +18,8 @@ const roundTo = (num: number, decimal: number): number => {
   return Math.round(num * Math.pow(10, decimal)) / Math.pow(10, decimal);
 };
 
-const CapTableRowItem: React.FC<CapTableRowItemProps> = ({shareholder, change }) => {
+// Card view for all screen sizes
+const CapTableCardItem: React.FC<CapTableRowItemProps> = ({shareholder, change}) => {
   const investment = (shareholder.type === CapTableRowType.Safe || shareholder.type === CapTableRowType.Series) ? shareholder.investment : null
   const pps = (shareholder.type === CapTableRowType.Safe || shareholder.type === CapTableRowType.Series) ? shareholder.pps : null
 
@@ -34,52 +35,79 @@ const CapTableRowItem: React.FC<CapTableRowItemProps> = ({shareholder, change })
   }
 
   return (
-    <tr className="">
-      <td className="py-3 px-2 pb-1 text-left border-b border-gray-300 dark:border-gray-700">
-        {shareholder.name}
-      </td>
-      <td className="py-3 px-2 w-2 border-none"></td>
-      <td className="py-3 px-4 pb-1 text-left border-b border-gray-300 dark:border-gray-700">
-        {investment
-          ? "$" + formatNumberWithCommas(investment)
-          : ""}
-      </td>
-      <td className="py-3 px-2 w-2 border-none"></td>
-      <td className="py-3 px-4 pb-1 text-left border-b border-gray-300 dark:border-gray-700">
-        {
-          pps
-            ? "$" + formatNumberWithCommas(pps)
-            : ""
-        }
-      </td>
-      <td className="py-3 px-2 w-2 border-none"></td>
-      <td className="py-3 px-4 pb-1 text-left border-b border-gray-300 dark:border-gray-700">
-        {
-          shareholder.shares
-            ? formatNumberWithCommas(shareholder.shares)
-            : ""
-        }
-      </td>
-      <td className="py-3 px-2 w-2 border-none"></td>
-      <td className="py-3 px-4 pb-1 text-left border-b border-gray-300 dark:border-gray-700">
-        <div className="grid grid-cols-2 justify-items-start">
-          <span className="">
-          {ownershipPct}
-          </span>
-          {hasChanges && (
-            <span
-              className={`pl-2 text-right ${changePct > 0 ? "text-green-500" : changePct < 0 ? "text-red-500" : "text-black"}`}
-            >
-              {changePct > 0 ? "+" : ""}{changePct}%
-            </span>
-          )}
+    <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-gray-800 rounded-lg">
+      <div className="font-bold text-white mb-3">{shareholder.name}</div>
+      
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {investment !== null && (
+          <div>
+            <div className="text-gray-400 text-sm">Investment</div>
+            <div className="text-white">${formatNumberWithCommas(investment || 0)}</div>
+          </div>
+        )}
+        
+        {pps !== null && (
+          <div>
+            <div className="text-gray-400 text-sm">PPS</div>
+            <div className="text-white">${formatNumberWithCommas(pps || 0)}</div>
+          </div>
+        )}
+        
+        {shareholder.shares && (
+          <div>
+            <div className="text-gray-400 text-sm">Shares</div>
+            <div className="text-white">{formatNumberWithCommas(shareholder.shares || 0)}</div>
+          </div>
+        )}
+        
+        <div>
+          <div className="text-gray-400 text-sm">Ownership</div>
+          <div className="flex items-center">
+            <span className="text-white">{ownershipPct}</span>
+            {hasChanges && (
+              <span
+                className={`ml-2 ${changePct > 0 ? "text-green-500" : changePct < 0 ? "text-red-500" : "text-white"}`}
+              >
+                {changePct > 0 ? "+" : ""}{changePct}%
+              </span>
+            )}
+          </div>
         </div>
-      </td>
-    </tr>
+      </div>
+    </div>
+  );
+};
 
-  )
-
-}
+// Total card for all screen sizes
+const TotalCard: React.FC<{totalRow: TotalCapTableRow}> = ({totalRow}) => {
+  return (
+    <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-gray-900 rounded-lg border-2 border-gray-700">
+      <div className="font-bold text-white mb-3">Total</div>
+      
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div>
+          <div className="text-gray-400 text-sm">Investment</div>
+          <div className="text-white">${formatNumberWithCommas(totalRow.investment)}</div>
+        </div>
+        
+        <div>
+          <div className="text-gray-400 text-sm">PPS</div>
+          <div className="text-white">-</div>
+        </div>
+        
+        <div>
+          <div className="text-gray-400 text-sm">Shares</div>
+          <div className="text-white">{formatNumberWithCommas(totalRow.shares ?? 0)}</div>
+        </div>
+        
+        <div>
+          <div className="text-gray-400 text-sm">Ownership</div>
+          <div className="text-white">{(totalRow.ownershipPct * 100).toFixed(2)}%</div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const CapTableResults: React.FC<CapTableProps> = (props) => {
   const {
@@ -88,66 +116,18 @@ export const CapTableResults: React.FC<CapTableProps> = (props) => {
     totalRow,
   } = props
 
-
-  const hasChanges = changes.length > 0
-
   return (
     <div>
-      <div className="overflow-hidden w-full mx-auto mt-2">
-        <table className="w-full text-sm border-seperate border-spacing-2">
-          <thead className="bg-inherit">
-            <tr className="text-gray-500">
-              <th className="py-3 px-2 text-left font-thin">Shareholder / Investor</th>
-              <th className="py-3 px-2 w-2 border-none"></th>
-              <th className="py-3 px-4 text-left font-thin">Investment</th>
-              <th className="py-3 px-2 w-2 border-none"></th>
-              <th className="py-3 px-4 text-left font-thin">PPS</th>
-              <th className="py-3 px-2 w-2 border-none"></th>
-              <th className="py-3 px-4 text-left font-thin">Shares</th>
-              <th className="py-3 px-2 w-2 border-none"></th>
-              <th className="py-3 px-4 text-left font-thin">Ownership %</th>
-            </tr>
-          </thead>
-          <tbody className="not-prose font-bold">
-            {rows.map((shareholder, idx) => (
-              <CapTableRowItem
-                key={`captablerow-${idx}`}
-                shareholder={shareholder}
-                change={changes[idx]}
-              />
-            ))}
-            <tr className="h-4">
-              <td className="py-0 px-0"></td>
-              <td className="py-0 px-0"></td>
-              <td className="py-0 px-0"></td>
-              <td className="py-0 px-0"></td>
-              <td className="py-0 px-0"></td>
-              <td className="py-0 px-0"></td>
-              <td className="py-0 px-0"></td>
-              <td className="py-0 px-0"></td>
-              <td className="py-0 px-0"></td>
-            </tr>
-            <tr className="font-bold bg-inherit border-2 border-gray-700 dark:border-gray-300">
-              <td className="py-3 px-4 text-left">Total</td>
-              <td className="py-3 px-2 w-2 border-none"></td>              
-              <td className="py-3 px-4 text-left">
-                ${formatNumberWithCommas(totalRow.investment)}
-              </td>
-              <td className="py-3 px-2 w-2 border-none"></td>              
-              <td className="py-3 px-4 text-left">
-              </td>
-              <td className="py-3 px-2 w-2 border-none"></td>
-              <td className="py-3 px-4 text-left">
-                {formatNumberWithCommas(totalRow.shares ?? 0)}
-              </td>
-              <td className="py-3 px-2 w-2 border-none"></td>
-              <td className="py-3 px-4 text-left">
-                {(totalRow.ownershipPct * 100).toFixed(2) + "%"}
-              </td>
-              {hasChanges && <td className="py-3 px-4 text-left"></td>}
-            </tr>
-          </tbody>
-        </table>
+      {/* Card view for all screen sizes */}
+      <div>
+        {rows.map((shareholder, idx) => (
+          <CapTableCardItem
+            key={`captablecard-${idx}`}
+            shareholder={shareholder}
+            change={changes[idx]}
+          />
+        ))}
+        <TotalCard totalRow={totalRow} />
       </div>
     </div>
   );

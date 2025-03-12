@@ -78,105 +78,137 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
 
   return (
     <div
-      className={`flex items-center space-x-4 ${isHovered ? 'mb-16' : 'mb-4'} ${isDragging ? 'opacity-50' : ''}`}
+      className={`w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-gray-800 rounded-lg ${isHovered ? 'mb-16' : ''} ${isDragging ? 'opacity-50' : ''}`}
       draggable={true}
-      // Without this "dataTransfer" event, the drag and drop will not work
-      onDragStart={ handleDragStart }
-      onDragOver={ handleDragOver }
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
       onDragEnd={(e) => { onDrop(e, data.id)} }
       onDrop={(e) => {
         const dropIndex = e.dataTransfer.getData('text/plain');
         onDrop(e, dropIndex)
-      } }
+      }}
     >
-      <button
-        className={`w-6 focus:outline-none focus:ring-2 cursor-move`}
-      >
-        <Bars4Icon className="inline" width={20} />
-      </button>
-      <button
-        onClick={() => onDelete(data.id)}
-        disabled={!data.allowDelete}
-        className={`w-6 focus:outline-none focus:ring-2 ${
-          data.allowDelete
-            ? "text-red-400 hover:text-red-500"
-            : "text-gray-500 cursor-not-allowed"
-        }`}
-      >
-        <XCircleIcon className="inline" width={20} />
-      </button>
-      <input
-        type="text"
-        name="name"
-        autoComplete="off"
-        value={data.name}
-        onChange={handleInputChange}
-        placeholder="Name"
-        className="w-48 px-3 py-2 border  focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-      {data.disabledFields?.includes("investment") ? (
-        <div className="w-36 px-3 border-b py-2 border-gray-300 dark:border-gray-700">${formatNumberWithCommas(data.investment)}</div>
-      ) : (
-        <CurrencyInput
-          type="text"
-          name="investment"
-          value={data.investment}
-          onValueChange={onValueChange}
-          placeholder="Investment"
-          autoComplete="off"
-          className="w-36 px-3 py-2 border  focus:outline-none focus:ring-2 focus:ring-blue-500"
-          prefix="$"
-          allowDecimals={false}
-        />
-      )}
-      {data.disabledFields?.includes("cap") ? (
-        <div className="w-36 px-3 border-b py-2 border-gray-300 dark:border-gray-700">${formatNumberWithCommas(Math.round(data.cap ?? 0))}</div>
-      ) : (
-      <CurrencyInput
-        type="text"
-        name="cap"
-        value={data.cap}
-        onValueChange={onValueChange}
-        placeholder="Valuation Cap"
-        autoComplete="off"
-        className="w-36 px-3 py-2 border  focus:outline-none focus:ring-2 focus:ring-blue-500"
-        prefix="$"
-        decimalScale={0}
-        allowDecimals={true}
-      />
-      )}
-      {data.disabledFields?.includes("discount") ? (
-        <div className="w-28 px-3 border-b py-2 border-gray-300 dark:border-gray-700">{data.discount}%</div>
-      ) : (
-      <CurrencyInput
-        type="text"
-        name="discount"
-        value={data.discount ?? "0"}
-        onValueChange={onValueChange}
-        placeholder="Discount %"
-        className="w-28 px-3 py-2 border  focus:outline-none focus:ring-2 focus:ring-blue-500"
-        autoComplete="off"
-        prefix=""
-        suffix="%"
-        decimalScale={0}
-        max={99}
-        maxLength={2}
-        allowDecimals={false}
-      />
-      )}
-      {(data.discount ?? 0) > 99 && <p className="text-red-500">Invalid discount</p>}
-      <select
-        name="conversionType"
-        value={conversionType()}
-        onChange={handleDropDownChange}
-        className="w-36 px-3 py-2 border  focus:outline-none focus:ring-2 focus:ring-blue-500"
-      >
-        <option value="post">Post Money</option>
-        <option value="pre">Pre Money</option>
-        <option value="mfn">Uncapped MFN</option>
-      </select>
-      <div className="w-24 border-b py-2 border-gray-300 dark:border-gray-700">
-        <PercentNote pct={data.ownershipPct ?? 0} note={data.ownershipError?.reason} error={data.ownershipError?.type} />
+      <div className="flex justify-between items-center mb-3">
+        <div className="flex items-center">
+          <button className="mr-2 text-gray-400 cursor-move focus:outline-none">
+            <Bars4Icon className="inline" width={20} />
+          </button>
+          <input
+            type="text"
+            name="name"
+            autoComplete="off"
+            value={data.name}
+            onChange={handleInputChange}
+            placeholder="Name"
+            className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
+          />
+        </div>
+        
+        <button
+          onClick={() => onDelete(data.id)}
+          disabled={!data.allowDelete}
+          className={`focus:outline-none ${
+            data.allowDelete
+              ? "text-red-400 hover:text-red-500"
+              : "text-gray-500 cursor-not-allowed"
+          }`}
+        >
+          <XCircleIcon className="inline" width={20} />
+        </button>
+      </div>
+      
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
+        <div>
+          <div className="text-gray-400 mb-1">Investment</div>
+          {data.disabledFields?.includes("investment") ? (
+            <div className="px-3 py-2 bg-gray-700 text-white rounded">${formatNumberWithCommas(data.investment)}</div>
+          ) : (
+            <CurrencyInput
+              type="text"
+              name="investment"
+              value={data.investment}
+              onValueChange={onValueChange}
+              placeholder="Investment"
+              autoComplete="off"
+              className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
+              prefix="$"
+              allowDecimals={false}
+            />
+          )}
+        </div>
+        
+        <div>
+          <div className="text-gray-400 mb-1">Cap</div>
+          {data.disabledFields?.includes("cap") ? (
+            <div className="px-3 py-2 bg-gray-700 text-white rounded">${formatNumberWithCommas(Math.round(data.cap ?? 0))}</div>
+          ) : (
+            <CurrencyInput
+              type="text"
+              name="cap"
+              value={data.cap}
+              onValueChange={onValueChange}
+              placeholder="Valuation Cap"
+              autoComplete="off"
+              className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
+              prefix="$"
+              decimalScale={0}
+              allowDecimals={true}
+            />
+          )}
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
+        <div>
+          <div className="text-gray-400 mb-1">
+            <TooltipComponent
+              content="Discount to the price of the next round when available (typically 0%-25%). Note that the actual Post Money Safe uses a Discount Rate which is (1 - Discount). So if the Safe has a Discount Rate of 80% then the Discount is 20% and you should enter 20%"
+            >
+              Discount<sup>?</sup>
+            </TooltipComponent>
+          </div>
+          {data.disabledFields?.includes("discount") ? (
+            <div className="px-3 py-2 bg-gray-700 text-white rounded">{data.discount}%</div>
+          ) : (
+            <CurrencyInput
+              type="text"
+              name="discount"
+              value={data.discount ?? "0"}
+              onValueChange={onValueChange}
+              placeholder="Discount %"
+              className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
+              autoComplete="off"
+              prefix=""
+              suffix="%"
+              decimalScale={0}
+              max={99}
+              maxLength={2}
+              allowDecimals={false}
+            />
+          )}
+          {(data.discount ?? 0) > 99 && <p className="text-red-500 mt-1">Invalid discount</p>}
+        </div>
+        
+        <div>
+          <div className="text-gray-400 mb-1">Type</div>
+          <select
+            name="conversionType"
+            value={conversionType()}
+            onChange={handleDropDownChange}
+            className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
+          >
+            <option value="post">Post Money</option>
+            <option value="pre">Pre Money</option>
+            <option value="mfn">Uncapped MFN</option>
+          </select>
+        </div>
+      </div>
+      
+      <div>
+        <div className="text-gray-400 mb-1">Ownership %</div>
+        <div className="px-3 py-2 bg-gray-700 text-white rounded">
+          <PercentNote pct={data.ownershipPct ?? 0} note={data.ownershipError?.reason} error={data.ownershipError?.type} />
+        </div>
       </div>
     </div>
   );
@@ -224,24 +256,12 @@ const SafeNoteList: React.FC<RowsProps<SAFEProps>> = ({
   }, []);
 
   return (
-    <div className="not-prose">
-      <div className="flex items-center space-x-4 mb-4">
-        <div className="w-16"> </div>
-        <div className="w-48">Name</div>
-        <div className="w-36">Investment</div>
-        <div className="w-36">Cap</div>
-        <div className="w-28"><TooltipComponent
-          content="Discount to the price of the next round when available (typically 0%-25%).  Note that the actual Post Money Safe uses a Discount Rate which is (1 - Discount). So if the Safe has a Discount Rate of 80% then the Discount is 20% and you should enter 20%"
-          >Discount<sup>?</sup></TooltipComponent></div>
-        <div className="w-36">Type</div>
-        <div className="w-24">Ownership %</div>
-      </div>
-
+    <div className="w-full">
       {rows.map((note, idx) => (
         <SAFEInputRow
           key={idx}
           data={note}
-          isDragging={ dragStartId === note.id }
+          isDragging={dragStartId === note.id}
           isHovered={dragOverId === note.id && dragStartId !== note.id}
           onUpdate={onUpdate}
           onDelete={onDelete}
@@ -250,12 +270,15 @@ const SafeNoteList: React.FC<RowsProps<SAFEProps>> = ({
           onDrop={onDrop}
         />
       ))}
-      <button
-        onClick={onAddRow}
-        className="ml-10 px-4 py-2  bg-nt84blue text-white hover:bg-nt84bluedarker focus:outline-none focus:ring-blue-500"
-      >
-        Add another SAFE
-      </button>
+      
+      <div className="w-full max-w-full sm:max-w-[960px] mx-auto">
+        <button
+          onClick={onAddRow}
+          className="w-full px-4 py-2 bg-nt84blue text-white hover:bg-nt84bluedarker focus:outline-none focus:ring-blue-500 rounded-lg"
+        >
+          + Add another SAFE
+        </button>
+      </div>
     </div>
   );
 };

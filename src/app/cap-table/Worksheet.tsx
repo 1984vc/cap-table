@@ -181,6 +181,21 @@ const Worksheet: React.FC<WorksheetProps> = ({conversionState, currentStateId, l
                 />
               </div>
             </div>
+            <div className="w-1/4">
+              <h2 className="my-2 not-prose">Post Money Valuation</h2>
+              <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
+                <CurrencyInput
+                  type="text"
+                  name="totalSeriesInvestment"
+                  value={postMoney}
+                  onValueChange={onPostMoneyChange}
+                  className="flex-1 w-full px-3 py-2 border  focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  prefix="$"
+                  decimalScale={0}
+                  allowDecimals={false}
+                />
+              </div>
+            </div>
           </div>
           <div className="flex space-x-4 ml-10">
             <div className="w-1/4">
@@ -223,23 +238,6 @@ const Worksheet: React.FC<WorksheetProps> = ({conversionState, currentStateId, l
               onDelete={onDeleteRow}
               onUpdate={onUpdateRow}
             />
-          </div>
-          <div className="flex space-x-4 ml-10 mt-8">
-            <div className="w-1/4">
-              <h2 className="my-2 not-prose">Post Money Valuation</h2>
-              <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-                <CurrencyInput
-                  type="text"
-                  name="totalSeriesInvestment"
-                  value={postMoney}
-                  onValueChange={onPostMoneyChange}
-                  className="flex-1 w-full px-3 py-2 border  focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  prefix="$"
-                  decimalScale={0}
-                  allowDecimals={false}
-                />
-              </div>
-            </div>
           </div>
         </div>
 

@@ -89,7 +89,7 @@ const Page: React.FC = () => {
 
   return (
     <div>
-      <main className="flex min-h-screen flex-col items-center justify-between py-8 min-w-[1024px]">
+      <main className="flex min-h-screen flex-col items-center justify-between py-8">
         <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
           <Worksheet conversionState={state} currentStateId={stateId} loadById={loadById} createNewState={createNewState} />
         </div>

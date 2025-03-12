@@ -93,7 +93,7 @@ const PricedRound: React.FC<PricedRoundProps> = (props) => {
 
   return (
     <div className="pt-2">
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
 
         <div className="flex flex-col bg-gray-100 p-8 text-center  relative dark:bg-nt84blue dark:text-gray-100">
           <div className="absolute text-nt84bluedarker dark:text-nt84lightblue top-0 right-0 p-2">
