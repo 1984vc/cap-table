@@ -1,13 +1,9 @@
-import { QuestionMarkCircleIcon } from "@heroicons/react/24/outline";
+import { FaRegQuestionCircle } from "react-icons/fa";
 
 export const QuestionMarkIcon: React.FC = () => {
   return (
     <span className="inline">
-      < QuestionMarkCircleIcon
-        width={20}
-        height={20}
-        className="inline"
-      />
+      <FaRegQuestionCircle width={20} height={20} className="inline" />
     </span>
   );
 };

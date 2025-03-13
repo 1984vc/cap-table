@@ -1,7 +1,7 @@
 import { copyTextToClipboard } from "@/utils/clipboard";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { BookmarkIcon, BookmarkSquareIcon } from "@heroicons/react/24/outline";
+import { FaBookmark, FaRegBookmark } from "react-icons/fa6";
 
 const Share: React.FC<{ url: string }> = ({ url }) => {
   const [isCopied, setCopied] = useState(false);
@@ -30,7 +30,7 @@ const Share: React.FC<{ url: string }> = ({ url }) => {
         <span>
           Share
           <span className="inline">
-            <BookmarkSquareIcon className="inline pl-2" width={20} />
+            <FaBookmark className="inline ml-2" width={20} />
           </span>
         </span>
       );
@@ -42,7 +42,7 @@ const Share: React.FC<{ url: string }> = ({ url }) => {
       <span>
         Share
         <span className="inline">
-            <BookmarkIcon className="inline pl-2" width={20}/>
+          <FaRegBookmark className="inline ml-2" width={20} />
         </span>
       </span>
     );
@@ -55,7 +55,11 @@ const Share: React.FC<{ url: string }> = ({ url }) => {
   return (
     <div className="">
       <Button
-        className={`w-28 ${isUpdatedRef.current ? "bg-nt84orange hover:bg-nt84orangedarker focus:ring-nt84orangedarker" : "bg-gray-400 hover:bg-gray-500 focus:ring-gray-300"}`}
+        className={`w-28 dark:text-white ${
+          isUpdatedRef.current
+            ? "bg-nt84orange hover:bg-nt84orangedarker focus:ring-nt84orangedarker"
+            : "bg-gray-400 hover:bg-gray-500 focus:ring-gray-300"
+        }`}
         onClick={() => setShowModal(true)}
       >
         {buttonText()}

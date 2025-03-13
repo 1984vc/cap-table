@@ -1,7 +1,7 @@
 import React from "react";
 import CurrencyInput from "react-currency-input-field";
 import { RowsProps } from "./PropTypes";
-import { XCircleIcon } from "@heroicons/react/24/outline";
+import { FaRegTrashCan } from "react-icons/fa6";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import QuestionMarkTooltipComponent from "@/components/tooltip/QuestionMarkTooltip";
@@ -10,7 +10,7 @@ import { CommonCapTableRow } from "@library/cap-table/types";
 export type ExistingShareholderProps = CommonCapTableRow & {
   // We need to ensure we can identify the row when updating or deleting
   id: string;
-}
+};
 
 interface ExistingShareholderRowProps {
   data: ExistingShareholderProps;
@@ -28,7 +28,7 @@ const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
   disableNameEdit,
 }) => {
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
     onUpdate({ ...data, [name]: value });
@@ -36,7 +36,7 @@ const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
 
   const onValueChange = (
     value: string | undefined,
-    name: string | undefined,
+    name: string | undefined
   ) => {
     if (name) {
       onUpdate({ ...data, [name]: parseFloat(value ?? "0") });
@@ -52,10 +52,13 @@ const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
           <QuestionMarkTooltipComponent>
             <div className="max-w-72">
               <p>
-                Reserved shares that have yet to be assigned as option grants for team members.
+                Reserved shares that have yet to be assigned as option grants
+                for team members.
               </p>
               <i>
-                [For example, if you have an option plan with 150,000 reserved shares and then granted 50,000 options to team members, your Unissued Option pool would be 100,000.]
+                [For example, if you have an option plan with 150,000 reserved
+                shares and then granted 50,000 options to team members, your
+                Unissued Option pool would be 100,000.]
               </i>
             </div>
           </QuestionMarkTooltipComponent>
@@ -66,29 +69,35 @@ const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
         <div className="inline-block text-nt84bluedarker dark:text-nt84lightblue">
           <QuestionMarkTooltipComponent>
             <div className="max-w-72">
-              Options or shares already issued to other employees, advisors, or shareholders in the company.
+              Options or shares already issued to other employees, advisors, or
+              shareholders in the company.
             </div>
           </QuestionMarkTooltipComponent>
         </div>
       );
     }
     return null;
-  }
+  };
 
   return (
-    <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 relative">
+    <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 relative">
       {allowDelete && (
         <Button
-          onClick={() => { onDelete(data.id) }}
+          onClick={() => {
+            onDelete(data.id);
+          }}
           variant="ghost"
-          className="p-0 text-red-400 hover:text-red-500 h-auto absolute top-2 right-2">
-          <XCircleIcon className="inline" width={20} />
+          className="p-0 text-red-400 hover:text-red-500 h-auto absolute top-3 right-3"
+        >
+          <FaRegTrashCan className="inline" width={20} />
         </Button>
       )}
       <div className="flex flex-col md:flex-row md:items-center md:space-x-4">
         <div className="mb-3 md:mb-0 md:flex-1">
           {disableNameEdit ? (
-            <span className="inline-block font-bold text-gray-900 dark:text-white">{data.name} {getTooltipButton()}</span>
+            <span className="inline-block font-bold text-gray-900 dark:text-white">
+              {data.name} {getTooltipButton()}
+            </span>
           ) : (
             <div>
               <div className="text-gray-500 dark:text-gray-400 mb-1">Name</div>
@@ -104,7 +113,7 @@ const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
             </div>
           )}
         </div>
-        
+
         <div className="mb-3 md:mb-0 md:flex-1">
           <div className="text-gray-500 dark:text-gray-400 mb-1">Shares</div>
           <CurrencyInput
@@ -120,27 +129,33 @@ const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
             customInput={Input}
           />
         </div>
-        
+
         <div className="mb-3 md:mb-0 md:flex-1">
-          <div className="text-gray-500 dark:text-gray-400 mb-1">Ownership %</div>
-          <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">{(ownership * 100).toFixed(2)}%</div>
+          <div className="text-gray-500 dark:text-gray-400 mb-1">
+            Ownership %
+          </div>
+          <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">
+            {(ownership * 100).toFixed(2)}%
+          </div>
         </div>
-        
       </div>
     </div>
   );
 };
 
-const ExisingShareholderList: React.FC<
-  RowsProps<ExistingShareholderProps> 
-> = ({ rows, onDelete, onUpdate, onAddRow }) => {
+const ExisingShareholderList: React.FC<RowsProps<ExistingShareholderProps>> = ({
+  rows,
+  onDelete,
+  onUpdate,
+  onAddRow,
+}) => {
   // Don't include the UnusedOptionsRow in the editable list since this is edited in a seperate field
   const existingShareholders = rows.filter(
-    (row) => ["UnusedOptionsPool", "IssuedOptions"].indexOf(row.id) === -1,
+    (row) => ["UnusedOptionsPool", "IssuedOptions"].indexOf(row.id) === -1
   );
 
-  const issuedOptionsRow = rows.find((row) => row.id === "IssuedOptions")
-  const unusedOptionsRow = rows.find((row) => row.id === "UnusedOptionsPool")
+  const issuedOptionsRow = rows.find((row) => row.id === "IssuedOptions");
+  const unusedOptionsRow = rows.find((row) => row.id === "UnusedOptionsPool");
 
   return (
     <div className="w-full">
@@ -153,31 +168,31 @@ const ExisingShareholderList: React.FC<
           allowDelete={rows.length > 1}
         />
       ))}
-      
+
       {issuedOptionsRow && (
         <ExistingShareholderRow
           data={issuedOptionsRow}
           onUpdate={onUpdate}
-          onDelete={() => { }}
+          onDelete={() => {}}
           allowDelete={false}
           disableNameEdit={true}
         />
       )}
-      
+
       {unusedOptionsRow && (
         <ExistingShareholderRow
           data={unusedOptionsRow}
           onUpdate={onUpdate}
-          onDelete={() => { }}
+          onDelete={() => {}}
           allowDelete={false}
           disableNameEdit={true}
         />
       )}
-      
+
       <div className="w-full max-w-full sm:max-w-[960px] mx-auto">
         <Button
           onClick={onAddRow}
-          className="w-full"
+          className="w-full bg-nt84blue hover:bg-nt84bluedarker dark:text-white"
         >
           + Add another Shareholder
         </Button>

@@ -1,6 +1,7 @@
-import { QuestionMarkCircleIcon } from "@heroicons/react/24/outline";
 import React, { useRef } from "react";
 import { Tooltip } from "react-tooltip";
+
+import { FaRegQuestionCircle } from "react-icons/fa";
 
 const QuestionMarkTooltipComponent: React.FC<{
   content?: string;
@@ -15,7 +16,7 @@ const QuestionMarkTooltipComponent: React.FC<{
         data-tooltip-id={id.current}
         data-tooltip-content={content}
       >
-        <QuestionMarkCircleIcon width="20"></QuestionMarkCircleIcon>
+        <FaRegQuestionCircle width="20" />
       </span>
       <Tooltip id={id.current} place="top" clickable>
         {children}

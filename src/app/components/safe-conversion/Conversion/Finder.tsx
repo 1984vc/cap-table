@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ClockIcon } from "@heroicons/react/24/outline";
+import { FaRegClock } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { getRecentStates } from "@/cap-table/state/localstorage";
 import { compressState } from "@/utils/stateCompression";
@@ -9,7 +9,10 @@ import { CapTableRowType } from "@library/cap-table/types";
 
 // Get a list of recent states from local storage
 // Also allow for a reset of the recent states
-const Finder: React.FC<{currentId: string, loadById: (id: string) => void}> = ({currentId, loadById}) => {
+const Finder: React.FC<{
+  currentId: string;
+  loadById: (id: string) => void;
+}> = ({ currentId, loadById }) => {
   const [showModal, setShowModal] = useState(false);
 
   const buttonText = () => {
@@ -17,17 +20,21 @@ const Finder: React.FC<{currentId: string, loadById: (id: string) => void}> = ({
       <span>
         History
         <span className="inline">
-          <ClockIcon className="inline pl-2" width={20} />
+          <FaRegClock className="inline ml-2" width={20} />
         </span>
       </span>
     );
   };
 
-  const url = window.location.protocol + "//" + window.location.host + window.location.pathname;
+  const url =
+    window.location.protocol +
+    "//" +
+    window.location.host +
+    window.location.pathname;
 
   const recentStates = () => {
     return getRecentStates().map((state) => {
-      const hash = compressState(state.conversionState)
+      const hash = compressState(state.conversionState);
       return {
         id: state.id,
         updatedAt: state.updatedAt,
@@ -36,21 +43,27 @@ const Finder: React.FC<{currentId: string, loadById: (id: string) => void}> = ({
         state: state.conversionState,
         url: `${url}#I${compressState(state.conversionState)}`,
       };
-    })
+    });
   };
 
   const describeCapTable = (state: IConversionStateData) => {
-    const safeInvestments = state.rowData.filter((row) => row.type === CapTableRowType.Safe).map((row) => row.investment).reduce((acc, val) => acc + val, 0);
-    const safeCount = state.rowData.filter((row) => row.type === CapTableRowType.Safe).length;
-    return `${safeCount} SAFE${ safeCount === 1 ? "" : "'s"} totaling ${shortenedUSD(safeInvestments)}`;
-  }
+    const safeInvestments = state.rowData
+      .filter((row) => row.type === CapTableRowType.Safe)
+      .map((row) => row.investment)
+      .reduce((acc, val) => acc + val, 0);
+    const safeCount = state.rowData.filter(
+      (row) => row.type === CapTableRowType.Safe
+    ).length;
+    return `${safeCount} SAFE${
+      safeCount === 1 ? "" : "'s"
+    } totaling ${shortenedUSD(safeInvestments)}`;
+  };
 
   // Credit to https://www.builder.io/blog/relative-time
   function getRelativeTimeString(
     date: Date | number,
     lang = navigator.language
   ): string {
-
     // Allow dates or times to be passed
     const timeMs = typeof date === "number" ? date : date.getTime();
 
@@ -58,13 +71,31 @@ const Finder: React.FC<{currentId: string, loadById: (id: string) => void}> = ({
     const deltaSeconds = Math.round((timeMs - Date.now()) / 1000);
 
     // Array reprsenting one minute, hour, day, week, month, etc in seconds
-    const cutoffs = [60, 3600, 86400, 86400 * 7, 86400 * 30, 86400 * 365, Infinity];
+    const cutoffs = [
+      60,
+      3600,
+      86400,
+      86400 * 7,
+      86400 * 30,
+      86400 * 365,
+      Infinity,
+    ];
 
     // Array equivalent to the above but in the string representation of the units
-    const units: Intl.RelativeTimeFormatUnit[] = ["second", "minute", "hour", "day", "week", "month", "year"];
+    const units: Intl.RelativeTimeFormatUnit[] = [
+      "second",
+      "minute",
+      "hour",
+      "day",
+      "week",
+      "month",
+      "year",
+    ];
 
     // Grab the ideal cutoff unit
-    const unitIndex = cutoffs.findIndex(cutoff => cutoff > Math.abs(deltaSeconds));
+    const unitIndex = cutoffs.findIndex(
+      (cutoff) => cutoff > Math.abs(deltaSeconds)
+    );
 
     // Get the divisor to divide from the seconds. E.g. if our unit is "day" our divisor
     // is one day in seconds, so we can divide our seconds by this to get the # of days
@@ -75,11 +106,10 @@ const Finder: React.FC<{currentId: string, loadById: (id: string) => void}> = ({
     return rtf.format(Math.floor(deltaSeconds / divisor), units[unitIndex]);
   }
 
-
   return (
     <div className="">
       <Button
-        className="w-28"
+        className="w-28 bg-nt84blue hover:bg-nt84bluedarker dark:text-white"
         onClick={() => setShowModal(true)}
       >
         {buttonText()}
@@ -96,18 +126,26 @@ const Finder: React.FC<{currentId: string, loadById: (id: string) => void}> = ({
                 Recent Cap Tables
               </h3>
               <ul>
-                {
-                recentStates().map((state) => (
+                {recentStates().map((state) => (
                   <li key={state.id}>
                     <a
-                      onClick={() => { loadById(state.id); setShowModal(false) }}
-                      className={`text-blue-500 hover:underline dark:text-blue-200 ${state.id === currentId ? 'bg-gray-100 dark:bg-gray-800' : ''}`}
+                      onClick={() => {
+                        loadById(state.id);
+                        setShowModal(false);
+                      }}
+                      className={`text-blue-500 hover:underline dark:text-blue-200 ${
+                        state.id === currentId
+                          ? "bg-gray-100 dark:bg-gray-800"
+                          : ""
+                      }`}
                     >
-                      {state.id.slice(0,7)} - { describeCapTable(state.state) } <span className="text-xs text-gray-900 dark:text-gray-300">({ getRelativeTimeString(state.updatedAt)})</span>
+                      {state.id.slice(0, 7)} - {describeCapTable(state.state)}{" "}
+                      <span className="text-xs text-gray-900 dark:text-gray-300">
+                        ({getRelativeTimeString(state.updatedAt)})
+                      </span>
                     </a>
                   </li>
-                ))
-              }
+                ))}
               </ul>
             </div>
             <div className="bg-gray-200 dark:bg-gray-800 px-4 py-3 sm:flex sm:flex-row-reverse">
