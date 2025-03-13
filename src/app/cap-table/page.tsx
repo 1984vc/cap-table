@@ -26,7 +26,7 @@ const Page: React.FC = () => {
   // Keep track of the hash for future use
   // const [currentHash, setCurrentHash] = useState(window.location.hash);
 
-  const storeRef = useRef<ConversionStore>();
+  const storeRef = useRef<ConversionStore | undefined>(undefined);
   if (storeRef.current === undefined) {
     // Create a new store with random data
     storeRef.current = createConversionStore(initialState({ ...getRandomData() }));
