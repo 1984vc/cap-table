@@ -41,12 +41,14 @@ const SeriesInvestorRow: React.FC<SeriesRowProps> = ({
   };
 
   return (
-    <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 relative">
+    <div
+      className={`w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700`}
+    >
       <Button
         onClick={() => onDelete(data.id)}
         disabled={!data.allowDelete}
         variant="ghost"
-        className={`p-0 h-auto absolute top-3 right-3 ${
+        className={`p-0 h-auto absolute top-3 right-1 ${
           data.allowDelete
             ? "text-red-400 hover:text-red-500"
             : "text-gray-500 cursor-not-allowed"
@@ -90,7 +92,7 @@ const SeriesInvestorRow: React.FC<SeriesRowProps> = ({
           <div className="text-gray-500 dark:text-gray-400 mb-1">
             Ownership %
           </div>
-          <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">
+          <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded">
             {data.ownershipPct.toFixed(2)}%
           </div>
         </div>

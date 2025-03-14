@@ -1,10 +1,8 @@
 import { formatNumberWithCommas } from "@library/utils/numberFormatting";
 import { BestFit } from "@library/conversion-solver";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -116,7 +114,7 @@ const PricedRound: React.FC<PricedRoundProps> = (props) => {
   return (
     <div className="pt-2">
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="relative flex flex-col h-36">
+        <Card className="relative flex flex-col h-26">
           <div className="absolute text-nt84bluedarker dark:text-nt84lightblue top-0 right-0 p-2 z-10">
             <QuestionMarkTooltipComponent>
               <div className="max-w-72">
@@ -143,7 +141,7 @@ const PricedRound: React.FC<PricedRoundProps> = (props) => {
               : ""}
           </div>
         </Card>
-        <Card className="relative flex flex-col h-36">
+        <Card className="relative flex flex-col h-26">
           <CardHeader className="pb-0 text-center">
             <CardTitle className="text-xl font-semibold tracking-tight">
               {formatNumberWithCommas(current.pricedConversion.newSharesIssued)}
@@ -162,7 +160,7 @@ const PricedRound: React.FC<PricedRoundProps> = (props) => {
               : ""}
           </div>
         </Card>
-        <Card className="relative flex flex-col h-36">
+        <Card className="relative flex flex-col h-26">
           <div className="absolute text-nt84bluedarker dark:text-nt84lightblue top-0 right-0 p-2 z-10">
             <QuestionMarkTooltipComponent>
               <div className="max-w-72">
@@ -191,7 +189,7 @@ const PricedRound: React.FC<PricedRoundProps> = (props) => {
               : ""}
           </div>
         </Card>
-        <Card className="relative flex flex-col h-36">
+        <Card className="relative flex flex-col h-26">
           <div className="absolute text-nt84bluedarker dark:text-nt84lightblue top-0 right-0 p-2 z-10">
             <QuestionMarkTooltipComponent>
               <div className="max-w-72">
@@ -221,7 +219,7 @@ const PricedRound: React.FC<PricedRoundProps> = (props) => {
           </div>
         </Card>
 
-        <Card className="relative flex flex-col h-36">
+        <Card className="relative flex flex-col h-26">
           <CardHeader className="pb-0 text-center">
             <CardTitle className="text-xl font-semibold tracking-tight">
               ${formatNumberWithCommas(current.preMoney)}
@@ -231,36 +229,34 @@ const PricedRound: React.FC<PricedRoundProps> = (props) => {
             <div className="text-sm font-semibold text-gray-600 dark:text-gray-200">
               Pre Money
             </div>
-          </CardContent>
-          <CardFooter className="justify-between pt-0 mt-auto">
-            <Button
-              name="decrement"
-              size="icon"
-              className="bg-nt84blue hover:bg-nt84bluedarker"
-              onClick={() => decrement("preMoney")}
-            >
-              <FaMinusCircle />
-            </Button>
-            <div className="text-sm text-gray-600 dark:text-gray-200 z-10">
-              {preMoneyChange !== 0
-                ? ` (${preMoneyChange > 0 ? "+" : ""}$${formatNumberWithCommas(
-                    current.preMoney - previous.preMoney
-                  )})`
-                : ""}
+            <div className="flex flex-row justify-between">
+              <FaMinusCircle
+                size="20"
+                className="text-nt84blue hover:text-nt84bluedarker"
+                name="decrement"
+                onClick={() => decrement("preMoney")}
+              />
+              <div className="text-sm text-gray-600 dark:text-gray-200 z-10">
+                {preMoneyChange !== 0
+                  ? ` (${
+                      preMoneyChange > 0 ? "+" : ""
+                    }$${formatNumberWithCommas(
+                      current.preMoney - previous.preMoney
+                    )})`
+                  : ""}
+              </div>
+              <FaPlusCircle
+                size="20"
+                className="text-nt84blue hover:text-nt84bluedarker"
+                name="increment"
+                onClick={() => increment("preMoney")}
+              />
             </div>
-            <Button
-              size="icon"
-              className="bg-nt84blue hover:bg-nt84bluedarker"
-              name="increment"
-              onClick={() => increment("preMoney")}
-            >
-              <FaPlusCircle />
-            </Button>
-          </CardFooter>
+          </CardContent>
         </Card>
 
         {/* Investment */}
-        <Card className="relative flex flex-col h-36">
+        <Card className="relative flex flex-col h-26">
           <CardHeader className="pb-0 text-center">
             <CardTitle className="text-xl font-semibold tracking-tight">
               ${formatNumberWithCommas(current.totalSeriesInvestment)}
@@ -270,37 +266,33 @@ const PricedRound: React.FC<PricedRoundProps> = (props) => {
             <div className="text-sm font-semibold text-gray-600 dark:text-gray-200">
               Investment
             </div>
-          </CardContent>
-          <CardFooter className="justify-between pt-0 mt-auto">
-            <Button
-              name="decrement"
-              size="icon"
-              className="bg-nt84blue hover:bg-nt84bluedarker"
-              onClick={() => decrement("investment")}
-            >
-              <FaMinusCircle />
-            </Button>
-            <div className="text-sm text-gray-600 dark:text-gray-200 z-10">
-              {investmentChange !== 0
-                ? ` (${
-                    investmentChange > 0 ? "+" : ""
-                  }$${formatNumberWithCommas(investmentChange)})`
-                : ""}
+            <div className="flex flex-row justify-between">
+              <FaMinusCircle
+                size="20"
+                className="text-nt84blue hover:text-nt84bluedarker"
+                name="decrement"
+                onClick={() => decrement("investment")}
+              />
+              <div className="text-sm text-gray-600 dark:text-gray-200 z-10">
+                {investmentChange !== 0
+                  ? ` (${
+                      investmentChange > 0 ? "+" : ""
+                    }$${formatNumberWithCommas(investmentChange)})`
+                  : ""}
+              </div>
+              <FaPlusCircle
+                size="20"
+                className="text-nt84blue hover:text-nt84bluedarker"
+                name="increment"
+                onClick={() => increment("investment")}
+              />
             </div>
-            <Button
-              size="icon"
-              className="bg-nt84blue hover:bg-nt84bluedarker"
-              name="increment"
-              onClick={() => increment("investment")}
-            >
-              <FaPlusCircle />
-            </Button>
-          </CardFooter>
+          </CardContent>
         </Card>
         {/* End Investment */}
 
         {/* PostMoney */}
-        <Card className="relative flex flex-col h-36">
+        <Card className="relative flex flex-col h-26">
           <CardHeader className="pb-0 text-center">
             <CardTitle className="text-xl font-semibold tracking-tight">
               ${formatNumberWithCommas(current.postMoney)}
@@ -310,37 +302,33 @@ const PricedRound: React.FC<PricedRoundProps> = (props) => {
             <div className="text-sm font-semibold text-gray-600 dark:text-gray-200">
               Post Money
             </div>
-          </CardContent>
-          <CardFooter className="justify-between pt-0 mt-auto">
-            <Button
-              size="icon"
-              className="bg-nt84blue hover:bg-nt84bluedarker"
-              name="decrement"
-              onClick={() => decrement("preMoney")}
-            >
-              <FaMinusCircle />
-            </Button>
-            <div className="text-sm text-gray-600 dark:text-gray-200 z-10">
-              {changes.postMoney !== 0
-                ? ` (${
-                    changes.postMoney > 0 ? "+" : ""
-                  }$${formatNumberWithCommas(changes.postMoney)})`
-                : ""}
+            <div className="flex flex-row justify-between px-6">
+              <FaMinusCircle
+                size="20"
+                className="text-nt84blue hover:text-nt84bluedarker"
+                name="decrement"
+                onClick={() => decrement("preMoney")}
+              />
+              <div className="text-sm text-gray-600 dark:text-gray-200 z-10">
+                {changes.postMoney !== 0
+                  ? ` (${
+                      changes.postMoney > 0 ? "+" : ""
+                    }$${formatNumberWithCommas(changes.postMoney)})`
+                  : ""}
+              </div>
+              <FaPlusCircle
+                size="20"
+                className="text-nt84blue hover:text-nt84bluedarker"
+                name="increment"
+                onClick={() => increment("preMoney")}
+              />
             </div>
-            <Button
-              size="icon"
-              className="bg-nt84blue hover:bg-nt84bluedarker"
-              name="increment"
-              onClick={() => increment("preMoney")}
-            >
-              <FaPlusCircle />
-            </Button>
-          </CardFooter>
+          </CardContent>
         </Card>
         {/* End PostMoney */}
 
         {/* Target Options */}
-        <Card className="relative flex flex-col h-36">
+        <Card className="relative flex flex-col h-26">
           <div className="absolute text-nt84bluedarker dark:text-nt84lightblue top-0 right-0 p-2 z-10">
             <QuestionMarkTooltipComponent>
               The target percentage of the new options pool, after the priced
@@ -356,32 +344,28 @@ const PricedRound: React.FC<PricedRoundProps> = (props) => {
             <div className="text-sm font-semibold text-gray-600 dark:text-gray-200">
               Target Options
             </div>
-          </CardContent>
-          <CardFooter className="justify-between pt-0 mt-auto">
-            <Button
-              size="icon"
-              className="bg-nt84blue hover:bg-nt84bluedarker"
-              name="decrement"
-              onClick={() => decrement("options")}
-            >
-              <FaMinusCircle />
-            </Button>
-            <div className="text-sm text-gray-600 dark:text-gray-200 z-10">
-              {targetOptionsChange !== 0
-                ? ` (${targetOptionsChange > 0 ? "+" : ""}${
-                    currentTargetOptionsChange * 100
-                  })`
-                : ""}
+            <div className="flex flex-row justify-between">
+              <FaMinusCircle
+                size="20"
+                className="text-nt84blue hover:text-nt84bluedarker"
+                name="decrement"
+                onClick={() => decrement("options")}
+              />
+              <div className="text-sm text-gray-600 dark:text-gray-200 z-10">
+                {targetOptionsChange !== 0
+                  ? ` (${targetOptionsChange > 0 ? "+" : ""}${
+                      currentTargetOptionsChange * 100
+                    })`
+                  : ""}
+              </div>
+              <FaPlusCircle
+                size="20"
+                className="text-nt84blue hover:text-nt84bluedarker"
+                name="increment"
+                onClick={() => increment("options")}
+              />
             </div>
-            <Button
-              size="icon"
-              className="bg-nt84blue hover:bg-nt84bluedarker"
-              name="increment"
-              onClick={() => increment("options")}
-            >
-              <FaPlusCircle />
-            </Button>
-          </CardFooter>
+          </CardContent>
         </Card>
         {/* End Target Options */}
       </div>

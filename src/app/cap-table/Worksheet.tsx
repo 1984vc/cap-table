@@ -12,7 +12,7 @@ import {
 import ExisingShareholderList from "@/components/safe-conversion/Conversion/ExistingShareholders";
 import PricedRound from "@/components/safe-conversion/Conversion/PricedRound";
 import SeriesInvestorList from "@/components/safe-conversion/Conversion/SeriesInvestorList";
-import { stringToNumber } from "@library/utils/numberFormatting";
+import { formatNumberWithCommas, stringToNumber } from "@library/utils/numberFormatting";
 import { getSAFERowPropsSelector } from "@/cap-table/state/selectors/SAFEPropsSelector";
 import { getSeriesPropsSelector } from "@/cap-table/state/selectors/SeriesPropsSelector";
 import SafeNoteList from "@/components/safe-conversion/Conversion/SafeNoteList";
@@ -196,7 +196,7 @@ const Worksheet: React.FC<WorksheetProps> = ({
             <hr />
             <h1 className="text-2xl font-bold mb-12 mt-12">3 New Round </h1>
             <h1 className="text-lg font-bold mb-4">Round Details</h1>
-            <div className="sm:max-w-[960px] mx-auto mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 relative">
+            <div className="sm:max-w-[960px] mx-auto mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 relative">
               <div className="flex flex-wrap gap-4">
                 <div className="w-full sm:w-1/5 md:w-1/5 lg:w-1/5">
                   <h2 className="my-2 not-prose">Premoney Valuation</h2>
@@ -245,20 +245,12 @@ const Worksheet: React.FC<WorksheetProps> = ({
                   />
                 </div>
                 <div className="w-full sm:w-1/5 md:w-1/5 lg:w-1/5">
-                  <h2 className="my-2 not-prose">Additional Options</h2>
-                  <CurrencyInput
-                    type="text"
-                    name="additionalOptions"
-                    value={pricedConversion?.additionalOptions}
-                    className="flex-1 w-full bg-gray-100 dark:bg-inherit"
-                    prefix=""
-                    decimalScale={0}
-                    max={99}
-                    maxLength={2}
-                    allowDecimals={false}
-                    disabled={true}
-                    customInput={Input}
-                  />
+                  <div className="text-gray-500 dark:text-gray-400 mb-1 my-2">
+                    Additional Options
+                  </div>
+                  <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded">
+                    {formatNumberWithCommas(pricedConversion?.additionalOptions || 0)}
+                  </div>
                 </div>
               </div>
             </div>

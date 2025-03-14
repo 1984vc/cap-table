@@ -87,7 +87,7 @@ const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
             onDelete(data.id);
           }}
           variant="ghost"
-          className="p-0 text-red-400 hover:text-red-500 h-auto absolute top-3 right-3"
+          className="p-0 text-red-400 hover:text-red-500 h-auto absolute top-3 right-1"
         >
           <FaRegTrashCan className="inline" width={20} />
         </Button>
@@ -95,7 +95,7 @@ const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
       <div className="flex flex-col md:flex-row md:items-center md:space-x-4">
         <div className="mb-3 md:mb-0 md:flex-1">
           {disableNameEdit ? (
-            <span className="inline-block font-bold text-gray-900 dark:text-white">
+            <span className="ml-2 inline-block font-bold text-gray-900 dark:text-white">
               {data.name} {getTooltipButton()}
             </span>
           ) : (
@@ -134,7 +134,7 @@ const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
           <div className="text-gray-500 dark:text-gray-400 mb-1">
             Ownership %
           </div>
-          <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">
+          <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded">
             {(ownership * 100).toFixed(2)}%
           </div>
         </div>
