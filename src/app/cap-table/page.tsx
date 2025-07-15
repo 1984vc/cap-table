@@ -9,71 +9,241 @@ import {
   createConversionStore,
 } from "./state/ConversionState";
 import { getRandomData, initialState } from "./state/initialState";
-import { compressState, decompressState } from "@/utils/stateCompression";
-import { findRecentState, getRecentState, updateRecentStates } from "./state/localstorage";
+import { findRecentState, updateRecentStates } from "./state/localstorage";
 import Worksheet from "./Worksheet";
 import { getSerializedSelector } from "./state/selectors/SerializeSelector";
-import { generateUUID } from "@/utils/uuid";
-
+import { generateBase58UUID } from "@/utils/uuid";
+import { BackendService } from "@/services/backendService";
 
 const Page: React.FC = () => {
-  // Keep a state id to save/update the state to local storage
-  // We keep multiple states in local storage, so we need to know which one to update
-  const [stateId, setStateId] = useState<string>(generateUUID(16));
+  const [stateId, setStateId] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdateReceived, setLastUpdateReceived] = useState<Date | null>(null);
+  const [lastUpdateSent, setLastUpdateSent] = useState<Date | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const skipNextSaveRef = useRef(false);
 
-  // We only need this on page load to determine the initial state
-  const urlHashRef = useRef<string>(window.location.hash)
-
-  // Keep track of the hash for future use
-  // const [currentHash, setCurrentHash] = useState(window.location.hash);
+  const backendService = BackendService.getInstance();
+  const wsRef = useRef<WebSocket | null>(null);
 
   const storeRef = useRef<ConversionStore | undefined>(undefined);
   if (storeRef.current === undefined) {
-    // Create a new store with random data
     storeRef.current = createConversionStore(initialState({ ...getRandomData() }));
   }
 
   const state = useStore(storeRef.current);
 
-  // Allow for loading a state by id from local storage
+  // Format timestamp for display (debugging)
+  const formatTimestamp = (date: Date | null) => {
+    if (!date) return null;
+    return date.toISOString();
+  };
+
+  // Initialize everything once on mount
+  useEffect(() => {
+    let cleanup = false;
+    const initializeApp = async () => {
+      if (cleanup) return;
+      const hash = window.location.hash.slice(1);
+      
+      if (hash.length === 0) {
+        // No UUID in URL - create new document
+        const newState = initialState({ ...getRandomData() });
+        
+        try {
+          const { id, editKey } = await backendService.createObject(newState);
+          const stateWithIds = { ...newState, objectId: id, editKey };
+          storeRef.current?.setState(stateWithIds);
+          updateRecentStates(id, stateWithIds);
+          window.location.hash = `${id}-${editKey}`;
+          setStateId(`${id}-${editKey}`);
+          
+          // Connect websocket
+          wsRef.current = backendService.connectWebSocket(id, (message) => {
+            if (message.type === 'update' && message.data) {
+              console.log('📥 Received update from WebSocket');
+              skipNextSaveRef.current = true;
+              const stateWithEditKey = { ...message.data, objectId: id, editKey };
+              storeRef.current?.setState(() => stateWithEditKey);
+              setLastUpdateReceived(new Date());
+            }
+          });
+          
+        } catch (error) {
+          console.error("Failed to create new document:", error);
+          setError("Failed to create new document");
+          // Fallback to local state
+          const uuid = generateBase58UUID();
+          const fallbackState = { ...newState, objectId: uuid };
+          storeRef.current?.setState(fallbackState);
+          updateRecentStates(uuid, fallbackState);
+          window.location.hash = uuid;
+          setStateId(uuid);
+        }
+        
+      } else if (hash.charAt(0) === "A") {
+        // Legacy base64 hash - convert to new system
+        try {
+          const { decompressState } = await import("@/utils/stateCompression");
+          const legacyState = decompressState(hash);
+          
+          const { id, editKey } = await backendService.createObject(legacyState);
+          const stateWithIds = { ...legacyState, objectId: id, editKey };
+          storeRef.current?.setState(stateWithIds);
+          updateRecentStates(id, stateWithIds);
+          window.location.hash = `${id}-${editKey}`;
+          setStateId(`${id}-${editKey}`);
+          
+          // Connect websocket
+          wsRef.current = backendService.connectWebSocket(id, (message) => {
+            if (message.type === 'update' && message.data) {
+              console.log('📥 Received update from WebSocket');
+              skipNextSaveRef.current = true;
+              const stateWithEditKey = { ...message.data, objectId: id, editKey };
+              storeRef.current?.setState(() => stateWithEditKey);
+              setLastUpdateReceived(new Date());
+            }
+          });
+          
+        } catch (error) {
+          console.error("Failed to convert legacy hash:", error);
+          // Fallback to new document
+          const uuid = generateBase58UUID();
+          const newState = initialState({ ...getRandomData() });
+          const fallbackState = { ...newState, objectId: uuid };
+          storeRef.current?.setState(fallbackState);
+          updateRecentStates(uuid, fallbackState);
+          window.location.hash = uuid;
+          setStateId(uuid);
+        }
+        
+      } else {
+        // UUID in URL - could be read-only (objectId) or read-write (objectId-editKey)
+        const isComposite = hash.includes('-');
+        
+        if (isComposite) {
+          // Read-write access: objectId-editKey
+          const [objectId, editKey] = hash.split('-');
+          try {
+            const response = await backendService.getObject(objectId);
+            const stateData = { ...response.data, objectId, editKey };
+            storeRef.current?.setState(stateData);
+            setStateId(hash);
+            
+            // Connect websocket for real-time updates (read-write)
+            wsRef.current = backendService.connectWebSocket(objectId, (message) => {
+              if (message.type === 'update' && message.data) {
+                console.log('📥 Received update from WebSocket');
+                skipNextSaveRef.current = true;
+                const stateWithEditKey = { ...message.data, objectId, editKey };
+                storeRef.current?.setState(() => stateWithEditKey);
+                setLastUpdateReceived(new Date());
+              }
+            });
+            
+          } catch (error) {
+            console.error("Failed to load document:", error);
+            setError("Failed to load document");
+            // Fallback to new document
+            const newState = initialState({ ...getRandomData() });
+            const fallbackState = { ...newState, objectId: hash };
+            storeRef.current?.setState(fallbackState);
+            updateRecentStates(hash, fallbackState);
+            setStateId(hash);
+          }
+        } else {
+          // Read-only access: objectId only
+          try {
+            const response = await backendService.getObject(hash);
+            const stateData = { ...response.data, objectId: hash };
+            storeRef.current?.setState(stateData);
+            setStateId(hash);
+            
+            // Connect websocket for real-time updates (read-only)
+            wsRef.current = backendService.connectWebSocket(hash, (message) => {
+              if (message.type === 'update' && message.data) {
+                console.log('📥 Received update from WebSocket (read-only)');
+                skipNextSaveRef.current = true;
+                const stateWithId = { ...message.data, objectId: hash };
+                storeRef.current?.setState(() => stateWithId);
+                setLastUpdateReceived(new Date());
+              }
+            });
+            
+          } catch (error) {
+            console.error("Failed to load document:", error);
+            setError("Failed to load document");
+            // Fallback to new document
+            const newState = initialState({ ...getRandomData() });
+            const fallbackState = { ...newState, objectId: hash };
+            storeRef.current?.setState(fallbackState);
+            updateRecentStates(hash, fallbackState);
+            setStateId(hash);
+          }
+        }
+      }
+      
+      setIsLoading(false);
+    };
+
+    initializeApp();
+    
+    // Cleanup on unmount
+    return () => {
+      cleanup = true;
+      // Small delay to prevent immediate close/reopen in StrictMode
+      setTimeout(() => {
+        if (wsRef.current) {
+          wsRef.current.close();
+        }
+        backendService.disconnectAll();
+      }, 100);
+    };
+  }, [backendService]);
+
+  // Auto-save changes to backend (debounced)
+  useEffect(() => {
+    // If this state change came from websocket, skip the save
+    if (skipNextSaveRef.current) {
+      skipNextSaveRef.current = false;
+      return;
+    }
+    
+    if (!isLoading && state.objectId && state.editKey) {
+      const timeoutId = setTimeout(async () => {
+        try {
+          setIsSaving(true);
+          console.log('📤 Saving changes to backend...');
+          await backendService.updateObject(state.objectId!, state.editKey!, getSerializedSelector(state));
+          setLastUpdateSent(new Date());
+          console.log('✅ Save successful');
+        } catch (error) {
+          console.error("❌ Failed to save:", error);
+          setError("Failed to save changes");
+        } finally {
+          setIsSaving(false);
+        }
+      }, 2000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [state, isLoading, backendService]);
+
+
+  // Load from local storage (for recent states menu)
   const loadById = (id: string) => {
     const state = findRecentState(id);
     if (state) {
       setStateId(id);
       storeRef.current?.setState(state);
-    } else {
-      createNewState(true);
     }
-  }
-
-  // Create a new state, either from random data or the most recent state
-  const createNewState = (findRecent: boolean) => {
-    const newId = generateUUID(16);
-    setStateId(newId);
-    const recentState = getRecentState()
-    const newState = findRecent && recentState ? recentState : initialState({ ...getRandomData() });
-    storeRef.current?.setState(newState);
-    updateRecentStates(newId, newState);
-    window.location.hash = compressState(newState)
   };
 
-  // Needed to solve closure issue of window event listener with state
-  useEffect(() => {
-    const hash = urlHashRef.current.slice(1);
-    if (hash.length === 0) {
-      createNewState(true);
-    } else if (hash.charAt(0) === "A") {
-      const state = decompressState(hash);
-      storeRef.current?.setState(state);
-    } else {
-      createNewState(false);
-    }
-  }, [urlHashRef]);
-
-  useEffect(() => {
-    window.location.hash = compressState(getSerializedSelector(state));
-    updateRecentStates(stateId, getSerializedSelector(state));
-  }, [state, stateId]);
+  // Create new state (for "New" button)
+  const createNewState = () => {
+    window.location.hash = ""; // This will trigger a reload with no hash
+    window.location.reload();
+  };
 
   // Dark mode state
   const [darkMode, setDarkMode] = useState(false);
@@ -126,9 +296,33 @@ const Page: React.FC = () => {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-nt84orange mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <main className="flex min-h-screen flex-col items-center justify-between py-8">
+        {/* Error notification */}
+        {error && (
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded-lg z-50">
+            {error}
+            <button
+              onClick={() => setError(null)}
+              className="ml-2 text-white hover:text-gray-200"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         {/* Breadcrumb and Heading */}
         <div className="z-10 w-full max-w-5xl mb-6 px-2">
           <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">
@@ -143,6 +337,34 @@ const Page: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             1984 Cap Table Worksheet
           </h1>
+          {wsRef.current?.readyState === WebSocket.OPEN && (
+            <div className="flex flex-col mt-2 space-y-1">
+              <div className="flex items-center">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  Connected - changes sync in real-time 
+                  {state.editKey ? ' (Read/Write)' : ' (Read-only)'}
+                </span>
+                {isSaving && (
+                  <span className="ml-2 text-xs text-blue-500 dark:text-blue-400">
+                    Saving...
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center space-x-4 text-xs text-gray-400 dark:text-gray-500">
+                {lastUpdateSent && (
+                  <span>
+                    Last sent: {formatTimestamp(lastUpdateSent)}
+                  </span>
+                )}
+                {lastUpdateReceived && (
+                  <span>
+                    Last received: {formatTimestamp(lastUpdateReceived)}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">

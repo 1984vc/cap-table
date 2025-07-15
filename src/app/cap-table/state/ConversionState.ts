@@ -30,6 +30,8 @@ export interface IConversionStateData {
   unusedOptions: number;
   preMoney: number;
   pricedRounds?: number;
+  objectId?: string;
+  editKey?: string;
 }
 
 export type ConversionStore = ReturnType<typeof createConversionStore>;

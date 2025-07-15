@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:1984-startup-finance-worker.mdp-005.workers.dev)",
+      "Bash(npm run build:*)",
+      "Bash(npm test)"
+    ],
+    "deny": []
+  }
+}

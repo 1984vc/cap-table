@@ -8,3 +8,13 @@ export const generateUUID = (len: number): string => {
 
   return uuid.slice(0, len);
 };
+
+// Generate base58 UUID (excludes 0, O, I, l)
+export const generateBase58UUID = (len: number = 22): string => {
+  const base58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  let result = '';
+  for (let i = 0; i < len; i++) {
+    result += base58Chars.charAt(Math.floor(Math.random() * base58Chars.length));
+  }
+  return result;
+};
