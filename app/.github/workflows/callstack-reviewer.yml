@@ -1,0 +1,27 @@
+name: Callstack.ai PR Review
+
+on:
+  workflow_dispatch:
+    inputs:
+      config:
+        type: string
+        description: "config for reviewer"
+        required: true
+      head:
+        type: string
+        description: "head commit sha"
+        required: true
+      base:
+        type: string
+        description: "base commit sha"
+        required: false
+
+jobs:
+  callstack_pr_review_job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Review PR
+        uses: callstackai/action@main
+        with:
+          config: ${{ inputs.config }}
+          head: ${{ inputs.head }}

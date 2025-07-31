@@ -1,0 +1,8 @@
+- [ ] Move the backend working into this repo
+- [ ] Backend worker should serve app
+- [ ] Fix the deploy to a unique worker and URL
+- [ ] Handle read only / write / new
+    - Clone a read only (can't modify, only in read only)
+    - Start a new fresh spreadsheet
+- [ ] Fix sharing button to handle read only and read write
+- [ ] Update footer to reveal new world of saving on the backend
