@@ -109,7 +109,7 @@ const Finder: React.FC<{
   return (
     <div className="">
       <Button
-        className="w-28 bg-nt84blue hover:bg-nt84bluedarker dark:text-white"
+        className="w-28 bg-nt84blue hover:bg-nt84bluedarker dark:text-white cursor-pointer"
         onClick={() => setShowModal(true)}
       >
         {buttonText()}

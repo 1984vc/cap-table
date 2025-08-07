@@ -125,11 +125,10 @@ const Worksheet: React.FC<WorksheetProps> = ({
           <Finder currentId={currentStateId} loadById={loadById}></Finder>
         )}
         <Button
-          className="w-28 bg-nt84blue hover:bg-nt84bluedarker text-white dark:text-white"
+          className="w-28 bg-nt84blue hover:bg-nt84bluedarker text-white dark:text-white cursor-pointer"
           onClick={() => createNewState(false)}
         >
-          Reset
-          <FaArrowRotateLeft className="ml-2" width={20} />
+          Create New
         </Button>
       </div>
       <h1 className="text-2xl font-bold mb-12 pl-2">1&#41;  Existing Cap Table</h1>
@@ -186,14 +185,14 @@ const Worksheet: React.FC<WorksheetProps> = ({
         {hasPricedRound ? (
           <Button
             onClick={togglepriceRounds}
-            className="w-full bg-nt84blue hover:bg-nt84bluedarker text-white dark:text-white"
+            className="w-full bg-nt84blue hover:bg-nt84bluedarker text-white dark:text-white cursor-pointer"
           >
             Remove Priced Round
           </Button>
         ) : (
           <Button
             onClick={togglepriceRounds}
-            className="w-full bg-nt84blue hover:bg-nt84bluedarker text-white dark:text-white"
+            className="w-full bg-nt84blue hover:bg-nt84bluedarker text-white dark:text-white cursor-pointer"
           >
             Add Priced Round
           </Button>

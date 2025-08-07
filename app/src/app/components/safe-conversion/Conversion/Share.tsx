@@ -75,7 +75,7 @@ const Share: React.FC<ShareProps> = ({
   return (
     <div className="">
       <Button
-        className={`w-28 dark:text-white ${
+        className={`w-28 dark:text-white cursor-pointer ${
           isUpdatedRef.current
             ? "bg-nt84orange hover:bg-nt84orangedarker focus:ring-nt84orangedarker"
             : "bg-gray-400 hover:bg-gray-500 focus:ring-gray-300"
