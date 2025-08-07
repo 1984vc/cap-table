@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { formatNumberWithCommas } from "@library/utils/numberFormatting";
 import CurrencyInput from "react-currency-input-field";
 import { Button } from "@/components/ui/button";
@@ -18,47 +18,35 @@ export type SAFEProps = SafeCapTableRow & {
   disabledFields?: string[];
 };
 
-interface SAFEInputRowProps {
+interface SAFETableRowProps {
   data: SAFEProps;
-  isHovered?: boolean;
-  isDragging?: boolean;
   onDelete: (id: string) => void;
   onUpdate: (data: SAFEProps) => void;
-  onDragStart: (event: React.DragEvent<HTMLDivElement>, index: string) => void;
-  onDragOver: (event: React.DragEvent<HTMLDivElement>, index: string) => void;
-  onDrop: (event: React.DragEvent<HTMLDivElement>, dropIndex: string) => void;
+  isDragging?: boolean;
+  isHovered?: boolean;
+  onDragStart: (event: React.DragEvent<HTMLTableRowElement>, id: string) => void;
+  onDragOver: (event: React.DragEvent<HTMLTableRowElement>, id: string) => void;
+  onDrop: (event: React.DragEvent<HTMLTableRowElement>, dropId: string) => void;
+  index: number;
 }
 
-const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
+const SAFETableRow: React.FC<SAFETableRowProps> = ({
   data,
-  isHovered = false,
-  isDragging = false,
   onDelete,
   onUpdate,
+  isDragging = false,
+  isHovered = false,
   onDragStart,
   onDragOver,
   onDrop,
+  index,
 }) => {
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    onUpdate({ ...data, [name]: value });
-  };
-
-  const handleDropDownChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    onUpdate({ ...data, [name]: value });
-  };
-
-  const onValueChange = (
-    value: string | undefined,
-    name: string | undefined
-  ) => {
-    if (name) {
-      onUpdate({ ...data, [name]: parseFloat(value ?? "0") });
-    }
-  };
+  const [editingCell, setEditingCell] = useState<{
+    field: string;
+  } | null>(null);
+  const [editValue, setEditValue] = useState<string>('');
+  const [editNumericValue, setEditNumericValue] = useState<number | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const conversionType = () => {
     if (data.conversionType === "yc7p") return "post";
@@ -66,168 +54,275 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
     else return data.conversionType;
   };
 
-  const handleDragStart = (event: React.DragEvent<HTMLDivElement>): void => {
+  // Start editing a cell
+  const startEditing = (field: string) => {
+    if (data.disabledFields?.includes(field)) return;
+    
+    let initialValue = '';
+    
+    if (field === 'investment' || field === 'cap' || field === 'discount') {
+      setEditNumericValue((data[field as keyof SAFEProps] as number) || 0);
+    } else {
+      initialValue = (data[field as keyof SAFEProps] as string) || '';
+    }
+    
+    setEditingCell({ field });
+    setEditValue(initialValue);
+    
+    // Focus the input after it's rendered
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, 0);
+  };
+
+  // Save edited value
+  const saveEdit = () => {
+    if (!editingCell) return;
+
+    const { field } = editingCell;
+    let valueToSave: any;
+
+    if (field === 'investment' || field === 'cap' || field === 'discount') {
+      valueToSave = editNumericValue || 0;
+      onUpdate({ ...data, [field]: valueToSave });
+    } else if (field === 'conversionType') {
+      valueToSave = editValue;
+      onUpdate({ ...data, conversionType: valueToSave as any });
+    } else {
+      valueToSave = editValue;
+      onUpdate({ ...data, [field]: valueToSave });
+    }
+
+    setEditingCell(null);
+  };
+
+  // Handle key press in editable cell
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      saveEdit();
+    } else if (e.key === 'Escape') {
+      setEditingCell(null);
+    }
+  };
+
+  // Focus the input when editing cell changes
+  useEffect(() => {
+    if (inputRef.current && editingCell) {
+      inputRef.current.focus();
+    }
+  }, [editingCell]);
+
+  // Handle drag events
+  const handleDragStart = (event: React.DragEvent<HTMLTableRowElement>): void => {
     event.dataTransfer.setData("text/plain", data.id);
     onDragStart(event, data.id);
   };
 
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>): void => {
+  const handleDragOver = (event: React.DragEvent<HTMLTableRowElement>): void => {
     event.preventDefault();
     onDragOver(event, data.id);
   };
 
-  return (
-    <div
-      className={`w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 ${
-        isHovered ? "mb-16" : ""
-      } ${isDragging ? "opacity-50" : ""} relative`}
-      draggable={true}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={(e) => {
-        onDrop(e, data.id);
-      }}
-      onDrop={(e) => {
-        const dropIndex = e.dataTransfer.getData("text/plain");
-        onDrop(e, dropIndex);
-      }}
-    >
-      <Button
-        onClick={() => onDelete(data.id)}
-        disabled={!data.allowDelete}
-        variant="ghost"
-        className={`p-0 h-auto absolute top-3 right-1 ${
-          data.allowDelete
-            ? "text-red-400 hover:text-red-500"
-            : "text-gray-500 cursor-not-allowed"
-        }`}
-      >
-        <FaRegTrashCan className="inline" width={20} />
-      </Button>
+  const handleDrop = (event: React.DragEvent<HTMLTableRowElement>): void => {
+    const dropIndex = event.dataTransfer.getData("text/plain");
+    onDrop(event, dropIndex);
+  };
 
-      <div className="flex flex-col md:flex-row md:items-center md:space-x-4">
-        <button className="mr-2 text-gray-500 dark:text-gray-400 cursor-move focus:outline-none">
-          <FaBars className="inline" width={20} />
-        </button>
-        <div className="mb-3 md:mb-0 md:w-[25%]">
-          <div className="text-gray-500 dark:text-gray-400 mb-1">Name</div>
-          <div className="flex items-center">
-            <Input
-              type="text"
-              name="name"
-              autoComplete="off"
-              value={data.name}
-              onChange={handleInputChange}
-              placeholder="Name"
-              className="w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
+  // Render editable cell
+  const renderEditableCell = (field: string, currentValue: string | number | null | undefined) => {
+    const displayValue = currentValue === null || currentValue === undefined ? '' : String(currentValue);
+    const isEditing = editingCell?.field === field;
+    const isDisabled = data.disabledFields?.includes(field);
+    
+    if (isDisabled) {
+      let formattedValue = displayValue;
+      if (field === 'investment' || field === 'cap') {
+        formattedValue = `$${formatNumberWithCommas(Number(currentValue) || 0)}`;
+      } else if (field === 'discount') {
+        formattedValue = `${currentValue}%`;
+      }
+      
+      return (
+        <div className="w-full px-2 py-1 rounded bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm h-8 flex items-center justify-start">
+          {formattedValue}
         </div>
-        <div className="mb-3 md:mb-0 md:w-[16%]">
-          <div className="text-gray-500 dark:text-gray-400 mb-1">
-            Investment
-          </div>
-          {data.disabledFields?.includes("investment") ? (
-            <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">
-              ${formatNumberWithCommas(data.investment)}
-            </div>
-          ) : (
-            <CurrencyInput
-              type="text"
-              name="investment"
-              value={data.investment}
-              onValueChange={onValueChange}
-              placeholder="Investment"
-              autoComplete="off"
-              className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
-              prefix="$"
-              allowDecimals={false}
-              customInput={Input}
-            />
-          )}
-        </div>
-
-        <div className="mb-3 md:mb-0 md:w-[16%]">
-          <div className="text-gray-500 dark:text-gray-400 mb-1">Cap</div>
-          {data.disabledFields?.includes("cap") ? (
-            <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">
-              ${formatNumberWithCommas(Math.round(data.cap ?? 0))}
-            </div>
-          ) : (
-            <CurrencyInput
-              type="text"
-              name="cap"
-              value={data.cap}
-              onValueChange={onValueChange}
-              placeholder="Valuation Cap"
-              autoComplete="off"
-              className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
-              prefix="$"
-              decimalScale={0}
-              allowDecimals={true}
-              customInput={Input}
-            />
-          )}
-        </div>
-        <div className="mb-3 md:mb-0 md:w-[10%]">
-          <div className="text-gray-500 dark:text-gray-400 mb-1">
-            <TooltipComponent content="Discount to the price of the next round when available (typically 0%-25%). Note that the actual Post Money Safe uses a Discount Rate which is (1 - Discount). So if the Safe has a Discount Rate of 80% then the Discount is 20% and you should enter 20%">
-              Discount<sup>?</sup>
-            </TooltipComponent>
-          </div>
-          {data.disabledFields?.includes("discount") ? (
-            <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">
-              {data.discount}%
-            </div>
-          ) : (
-            <CurrencyInput
-              type="text"
-              name="discount"
-              value={data.discount ?? "0"}
-              onValueChange={onValueChange}
-              placeholder="Discount %"
-              className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
-              autoComplete="off"
-              prefix=""
-              suffix="%"
-              decimalScale={0}
-              max={99}
-              maxLength={2}
-              allowDecimals={false}
-              customInput={Input}
-            />
-          )}
-          {(data.discount ?? 0) > 99 && (
-            <p className="text-red-500 mt-1">Invalid discount</p>
-          )}
-        </div>
-
-        <div className="mb-3 md:mb-0 md:w-[18%]">
-          <div className="text-gray-500 dark:text-gray-400 mb-1">Type</div>
+      );
+    }
+    
+    if (isEditing) {
+      if (field === 'investment' || field === 'cap') {
+        return (
+          <CurrencyInput
+            ref={inputRef as any}
+            value={editNumericValue || 0}
+            onValueChange={(value) => setEditNumericValue(parseFloat(value || '0'))}
+            onBlur={saveEdit}
+            onKeyDown={handleKeyPress}
+            placeholder={field === 'investment' ? 'Investment' : 'Valuation Cap'}
+            className="w-full px-2 py-1 border rounded text-right bg-white dark:bg-gray-700 text-sm h-8"
+            prefix="$"
+            decimalScale={0}
+            allowDecimals={field === 'cap'}
+            customInput={Input}
+          />
+        );
+      } else if (field === 'discount') {
+        return (
+          <CurrencyInput
+            ref={inputRef as any}
+            value={editNumericValue || 0}
+            onValueChange={(value) => setEditNumericValue(parseFloat(value || '0'))}
+            onBlur={saveEdit}
+            onKeyDown={handleKeyPress}
+            placeholder="Discount %"
+            className="w-full px-2 py-1 border rounded text-right bg-white dark:bg-gray-700 text-sm h-8"
+            prefix=""
+            suffix="%"
+            decimalScale={0}
+            max={99}
+            maxLength={2}
+            allowDecimals={false}
+            customInput={Input}
+          />
+        );
+      } else if (field === 'conversionType') {
+        return (
           <select
-            name="conversionType"
+            ref={inputRef as any}
             value={conversionType()}
-            onChange={handleDropDownChange}
-            className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-500 text-gray-900 dark:text-white"
+            onChange={(e) => {
+              setEditValue(e.target.value);
+              onUpdate({ ...data, conversionType: e.target.value as any });
+              setEditingCell(null);
+            }}
+            onBlur={saveEdit}
+            onKeyDown={handleKeyPress}
+            className="w-full px-2 py-1 border rounded bg-white dark:bg-gray-700 text-sm h-8"
           >
             <option value="post">Post Money</option>
             <option value="pre">Pre Money</option>
             <option value="mfn">Uncapped MFN</option>
           </select>
-        </div>
-
-        <div className="mb-3 md:mb-0 md:w-[12%]">
-          <div className="text-gray-500 dark:text-gray-400 mb-1">Ownership</div>
-          <div className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded">
-            <PercentNote
-              pct={data.ownershipPct ?? 0}
-              note={data.ownershipError?.reason}
-              error={data.ownershipError?.type}
-            />
-          </div>
-        </div>
+        );
+      } else {
+        return (
+          <input
+            ref={inputRef}
+            type="text"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={saveEdit}
+            onKeyDown={handleKeyPress}
+            className="w-full px-2 py-1 border rounded bg-white dark:bg-gray-700 text-sm h-8"
+          />
+        );
+      }
+    }
+    
+    // Display value when not editing
+    const canEdit = !isDisabled;
+    let formattedDisplayValue = displayValue;
+    
+    if (field === 'investment' || field === 'cap') {
+      formattedDisplayValue = displayValue ? `$${formatNumberWithCommas(Number(currentValue))}` : '';
+    } else if (field === 'discount') {
+      formattedDisplayValue = displayValue ? `${currentValue}%` : '';
+    } else if (field === 'conversionType') {
+      const typeMap: { [key: string]: string } = {
+        'post': 'Post Money',
+        'pre': 'Pre Money',
+        'mfn': 'Uncapped MFN'
+      };
+      formattedDisplayValue = typeMap[conversionType()] || conversionType();
+    }
+    
+    return (
+      <div
+        onClick={() => canEdit && startEditing(field)}
+        className={`w-full px-2 py-1 rounded text-sm h-8 flex items-center ${
+          field === 'investment' || field === 'cap' || field === 'discount' ? 'justify-end' : 'justify-start'
+        } ${
+          canEdit 
+            ? 'bg-white dark:bg-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 border border-transparent hover:border-gray-300 dark:hover:border-gray-600' 
+            : 'bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+        }`}
+      >
+        {formattedDisplayValue || (canEdit ? <span className="text-gray-400">Click to edit</span> : '')}
       </div>
-    </div>
+    );
+  };
+
+  return (
+    <tr
+      className={`${isDragging ? 'opacity-50' : ''} ${isHovered ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+      draggable={true}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* Drag Handle */}
+      <td className="px-2 py-2 w-8 text-center">
+        <button className="text-gray-500 dark:text-gray-400 cursor-move focus:outline-none">
+          <FaBars className="w-3 h-3" />
+        </button>
+      </td>
+      
+      {/* Name */}
+      <td className="px-3 py-2 w-2/5 break-words">
+        {renderEditableCell('name', data.name)}
+      </td>
+      
+      {/* Investment */}
+      <td className="px-3 py-2 w-1/6">
+        {renderEditableCell('investment', data.investment)}
+      </td>
+      
+      {/* Cap */}
+      <td className="px-3 py-2 w-1/5">
+        {renderEditableCell('cap', data.cap)}
+      </td>
+      
+      {/* Discount */}
+      <td className="px-3 py-2 w-12">
+        <div className="space-y-1">
+          {renderEditableCell('discount', data.discount)}
+          {(data.discount ?? 0) > 99 && (
+            <p className="text-red-500 text-xs">Invalid discount</p>
+          )}
+        </div>
+      </td>
+      
+      {/* Type */}
+      <td className="px-3 py-2 w-1/3">
+        {renderEditableCell('conversionType', conversionType())}
+      </td>
+      
+      {/* Ownership */}
+      <td className="px-3 py-2 w-1/12">
+        <div className="w-full px-2 py-1 rounded bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm h-8 flex items-center justify-end">
+          <PercentNote
+            pct={data.ownershipPct ?? 0}
+            note={data.ownershipError?.reason}
+            error={data.ownershipError?.type}
+          />
+        </div>
+      </td>
+      
+      {/* Actions */}
+      <td className="px-2 py-2 text-center w-8">
+        {data.allowDelete && (
+          <Button
+            onClick={() => onDelete(data.id)}
+            variant="ghost"
+            className="p-1 text-red-400 hover:text-red-500 h-auto cursor-pointer"
+          >
+            <FaRegTrashCan className="w-3 h-3" />
+          </Button>
+        )}
+      </td>
+    </tr>
   );
 };
 
@@ -242,17 +337,17 @@ const SafeNoteList: React.FC<RowsProps<SAFEProps>> = ({
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const onDragStart = (
-    _event: React.DragEvent<HTMLDivElement>,
-    index: string
+    _event: React.DragEvent<HTMLTableRowElement>,
+    id: string
   ) => {
-    setDragStartId(index);
+    setDragStartId(id);
   };
 
   const onDragOver = (
-    _event: React.DragEvent<HTMLDivElement>,
-    index: string
+    _event: React.DragEvent<HTMLTableRowElement>,
+    id: string
   ) => {
-    setDragOverId(index);
+    setDragOverId(id);
   };
 
   const onDrop = () => {
@@ -277,26 +372,92 @@ const SafeNoteList: React.FC<RowsProps<SAFEProps>> = ({
     };
   }, []);
 
+  // Calculate totals
+  const totalInvestment = rows.reduce((sum, row) => sum + (row.investment || 0), 0);
+  const totalOwnership = rows.reduce((sum, row) => sum + (row.ownershipPct || 0), 0);
+
   return (
     <div className="w-full">
-      {rows.map((note, idx) => (
-        <SAFEInputRow
-          key={idx}
-          data={note}
-          isDragging={dragStartId === note.id}
-          isHovered={dragOverId === note.id && dragStartId !== note.id}
-          onUpdate={onUpdate}
-          onDelete={onDelete}
-          onDragStart={onDragStart}
-          onDragOver={onDragOver}
-          onDrop={onDrop}
-        />
-      ))}
-
-      <div className="w-full max-w-full sm:max-w-[960px] mx-auto">
+      <div className="bg-white dark:bg-gray-800 shadow overflow-x-auto rounded-lg">
+        <table className="min-w-full table-fixed divide-y divide-gray-200 dark:divide-gray-600">
+          <thead className="bg-gray-50 dark:bg-gray-700">
+            <tr>
+              <th className="px-2 py-2 w-8"></th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-2/5">
+                <div className="flex items-center justify-between">
+                  <span>Safe Holder</span>
+                  <Button
+                    onClick={onAddRow}
+                    variant="ghost"
+                    className="ml-2 p-1 text-blue-500 hover:text-blue-700 h-auto cursor-pointer"
+                    title="Add new SAFE"
+                  >
+                    +
+                  </Button>
+                </div>
+              </th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-1/6">
+                Investment
+              </th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-1/5">
+                Cap
+              </th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-12">
+                <TooltipComponent content="Discount to the price of the next round when available (typically 0%-25%). Note that the actual Post Money Safe uses a Discount Rate which is (1 - Discount). So if the Safe has a Discount Rate of 80% then the Discount is 20% and you should enter 20%">
+                  Discount<sup>?</sup>
+                </TooltipComponent>
+              </th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-1/3">
+                Type
+              </th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-1/12">
+                Ownership
+              </th>
+              <th className="px-2 py-2 w-8"></th>
+            </tr>
+          </thead>
+          <tbody className="bg-gray-100 dark:bg-gray-700 divide-y divide-gray-200 dark:divide-gray-600">
+            {rows.map((safe, idx) => (
+              <SAFETableRow
+                key={safe.id || idx}
+                data={safe}
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+                isDragging={dragStartId === safe.id}
+                isHovered={dragOverId === safe.id && dragStartId !== safe.id}
+                onDragStart={onDragStart}
+                onDragOver={onDragOver}
+                onDrop={onDrop}
+                index={idx}
+              />
+            ))}
+            
+            {/* Total Row */}
+            <tr className="bg-gray-100 dark:bg-gray-600 font-bold">
+              <td className="px-2 py-2 w-8"></td>
+              <td className="px-3 py-2 text-gray-900 dark:text-white w-2/5">
+                Total
+              </td>
+              <td className="px-3 py-2 text-right text-gray-900 dark:text-white w-1/6">
+                ${formatNumberWithCommas(totalInvestment)}
+              </td>
+              <td className="px-3 py-2 w-1/5"></td>
+              <td className="px-3 py-2 w-12"></td>
+              <td className="px-3 py-2 w-1/3"></td>
+              <td className="px-3 py-2 text-right text-gray-900 dark:text-white w-1/12">
+                {(totalOwnership * 100).toFixed(2)}%
+              </td>
+              <td className="px-2 py-2 w-8"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      {/* Add new row button at bottom */}
+      <div className="flex justify-center mt-4">
         <Button
           onClick={onAddRow}
-          className="w-full bg-nt84blue hover:bg-nt84bluedarker dark:text-white"
+          className="bg-nt84blue hover:bg-nt84bluedarker dark:text-white cursor-pointer"
         >
           + Add another SAFE
         </Button>

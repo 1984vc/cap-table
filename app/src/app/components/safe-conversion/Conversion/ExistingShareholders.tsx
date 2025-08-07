@@ -264,7 +264,7 @@ const ExisingShareholderList: React.FC<RowsProps<ExistingShareholderProps>> = ({
             <tr>
               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-2/5">
                 <div className="flex items-center justify-between">
-                  <span>Name</span>
+                  <span>Shareholder</span>
                   <Button
                     onClick={onAddRow}
                     variant="ghost"
