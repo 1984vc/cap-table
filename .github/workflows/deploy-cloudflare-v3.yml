@@ -37,10 +37,11 @@ jobs:
 
       - name: Install worker dependencies
         working-directory: ./worker
-        run: npm ci
+        run: pnpm i
 
       - name: Deploy to Cloudflare Workers
         working-directory: ./worker
-        run: npm run deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm run deploy
