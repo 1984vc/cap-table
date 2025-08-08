@@ -36,21 +36,12 @@ jobs:
         run: pnpm run build
 
       - name: Install worker dependencies
-        run: cd worker && pnpm i
+        working-directory: ./worker
+        run: pnpm i
 
-      - name: Debug - Check current directory and files
-        run: |
-          echo "Current directory:"
-          pwd
-          echo "Files in current directory:"
-          ls -la
-          echo "Files in worker directory:"
-          ls -la worker/
-          echo "Worker package.json content:"
-          cat worker/package.json
-
-      - name: Deploy to Cloudflare Workers
-        run: cd worker && pnpm run deploy
+       name: Deploy to Cloudflare Workers
+        working-directory: ./worker
+        run: pnpm run deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

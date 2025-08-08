@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Real-time JSON API Client</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; border-radius: 5px; }
+        .form-group { margin: 10px 0; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, textarea { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 3px; }
+        button { background: #007cba; color: white; padding: 10px 20px; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #005a84; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 3px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        #wsStatus { font-weight: bold; }
+        .connected { color: #28a745; }
+        .disconnected { color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Real-time JSON API Client</h1>
+        
+        <div class="section">
+            <h2>Configuration</h2>
+            <div class="form-group">
+                <label for="baseUrl">Base URL:</label>
+                <input type="text" id="baseUrl" value="http://localhost:8787" placeholder="http://localhost:8787">
+            </div>
+            <div class="form-group">
+                <label for="objectId">Object ID:</label>
+                <input type="text" id="objectId" value="test-object" placeholder="test-object">
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>WebSocket Connection</h2>
+            <button id="connectWs">Connect WebSocket</button>
+            <button id="disconnectWs">Disconnect WebSocket</button>
+            <div>Status: <span id="wsStatus" class="disconnected">Disconnected</span></div>
+            <div>
+                <h3>Real-time Updates:</h3>
+                <div id="wsMessages"></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Get Object</h2>
+            <button id="getObject">Get Object</button>
+            <div id="getResult"></div>
+        </div>
+
+        <div class="section">
+            <h2>Update Object</h2>
+            <div class="form-group">
+                <label for="jsonData">JSON Data:</label>
+                <textarea id="jsonData" rows="6" placeholder='{"name": "John", "age": 30, "city": "New York"}'></textarea>
+            </div>
+            <button id="updateObject">Update Object</button>
+            <div id="updateResult"></div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        
+        const baseUrlInput = document.getElementById('baseUrl');
+        const objectIdInput = document.getElementById('objectId');
+        const wsStatus = document.getElementById('wsStatus');
+        const wsMessages = document.getElementById('wsMessages');
+        const getResult = document.getElementById('getResult');
+        const updateResult = document.getElementById('updateResult');
+        const jsonDataInput = document.getElementById('jsonData');
+
+        function showStatus(element, message, type = 'info') {
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function addWsMessage(message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'status info';
+            messageDiv.innerHTML = `<strong>${new Date().toLocaleTimeString()}:</strong> <pre>${JSON.stringify(message, null, 2)}</pre>`;
+            wsMessages.appendChild(messageDiv);
+            wsMessages.scrollTop = wsMessages.scrollHeight;
+        }
+
+        function getApiUrl() {
+            return `${baseUrlInput.value}/api/objects/${objectIdInput.value}`;
+        }
+
+        function getWsUrl() {
+            const baseUrl = baseUrlInput.value.replace('http://', 'ws://').replace('https://', 'wss://');
+            return `${baseUrl}/api/objects/${objectIdInput.value}/ws`;
+        }
+
+        document.getElementById('connectWs').addEventListener('click', () => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                showStatus(wsMessages, 'WebSocket already connected', 'error');
+                return;
+            }
+
+            try {
+                ws = new WebSocket(getWsUrl());
+                
+                ws.onopen = () => {
+                    wsStatus.textContent = 'Connected';
+                    wsStatus.className = 'connected';
+                    addWsMessage({ type: 'connection', status: 'connected' });
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        addWsMessage(data);
+                    } catch (e) {
+                        addWsMessage({ type: 'raw', data: event.data });
+                    }
+                };
+
+                ws.onclose = () => {
+                    wsStatus.textContent = 'Disconnected';
+                    wsStatus.className = 'disconnected';
+                    addWsMessage({ type: 'connection', status: 'disconnected' });
+                };
+
+                ws.onerror = (error) => {
+                    wsStatus.textContent = 'Error';
+                    wsStatus.className = 'disconnected';
+                    addWsMessage({ type: 'error', message: 'WebSocket error occurred' });
+                };
+            } catch (error) {
+                showStatus(wsMessages, `Connection error: ${error.message}`, 'error');
+            }
+        });
+
+        document.getElementById('disconnectWs').addEventListener('click', () => {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        });
+
+        document.getElementById('getObject').addEventListener('click', async () => {
+            try {
+                const response = await fetch(getApiUrl());
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showStatus(getResult, `<pre>${JSON.stringify(data, null, 2)}</pre>`, 'success');
+                } else {
+                    showStatus(getResult, `Error: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                showStatus(getResult, `Network error: ${error.message}`, 'error');
+            }
+        });
+
+        document.getElementById('updateObject').addEventListener('click', async () => {
+            try {
+                const jsonData = jsonDataInput.value.trim();
+                if (!jsonData) {
+                    showStatus(updateResult, 'Please enter JSON data', 'error');
+                    return;
+                }
+
+                let parsedData;
+                try {
+                    parsedData = JSON.parse(jsonData);
+                } catch (e) {
+                    showStatus(updateResult, `Invalid JSON: ${e.message}`, 'error');
+                    return;
+                }
+
+                const response = await fetch(getApiUrl(), {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(parsedData)
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showStatus(updateResult, `<pre>${JSON.stringify(data, null, 2)}</pre>`, 'success');
+                } else {
+                    showStatus(updateResult, `Error: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                showStatus(updateResult, `Network error: ${error.message}`, 'error');
+            }
+        });
+
+        // Set default JSON data
+        jsonDataInput.value = JSON.stringify({
+            name: "John Doe",
+            age: 30,
+            city: "New York",
+            timestamp: new Date().toISOString()
+        }, null, 2);
+    </script>
+</body>
+</html>
