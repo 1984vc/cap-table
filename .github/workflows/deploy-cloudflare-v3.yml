@@ -39,7 +39,7 @@ jobs:
         working-directory: ./worker
         run: pnpm i
 
-       name: Deploy to Cloudflare Workers
+      - name: Deploy to Cloudflare Workers
         working-directory: ./worker
         run: pnpm run deploy
         env:
