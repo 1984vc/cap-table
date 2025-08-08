@@ -27,7 +27,6 @@ interface SAFETableRowProps {
   onDragStart: (event: React.DragEvent<HTMLTableRowElement>, id: string) => void;
   onDragOver: (event: React.DragEvent<HTMLTableRowElement>, id: string) => void;
   onDrop: (event: React.DragEvent<HTMLTableRowElement>, dropId: string) => void;
-  index: number;
 }
 
 const SAFETableRow: React.FC<SAFETableRowProps> = ({
@@ -39,7 +38,6 @@ const SAFETableRow: React.FC<SAFETableRowProps> = ({
   onDragStart,
   onDragOver,
   onDrop,
-  index,
 }) => {
   const [editingCell, setEditingCell] = useState<{
     field: string;
@@ -428,7 +426,6 @@ const SafeNoteList: React.FC<RowsProps<SAFEProps>> = ({
                 onDragStart={onDragStart}
                 onDragOver={onDragOver}
                 onDrop={onDrop}
-                index={idx}
               />
             ))}
             

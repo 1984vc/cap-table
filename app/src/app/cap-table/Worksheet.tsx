@@ -21,7 +21,6 @@ import { CapTableResults } from "@/components/safe-conversion/Conversion/CapTabl
 import { getReadOnlyUrl, getFullAccessUrl, hasEditAccess } from "./state/selectors/ShareURLSelector";
 import { getErrorSelector } from "./state/selectors/ErrorSelector";
 import Finder from "@/components/safe-conversion/Conversion/Finder";
-import { FaArrowRotateLeft } from "react-icons/fa6";
 import { localStorageWorks } from "./state/localstorage";
 import { getCommonOnlyCapTable } from "./state/selectors/CommonOnlyCapTableSelector";
 import { getPreRoundCapTable } from "./state/selectors/PreRoundCapTableSelector";

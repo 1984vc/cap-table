@@ -18,7 +18,6 @@ interface ExistingShareholderRowProps {
   onUpdate: (data: ExistingShareholderProps) => void;
   allowDelete?: boolean;
   disableNameEdit?: boolean;
-  index: number;
 }
 
 const ExistingShareholderTableRow: React.FC<ExistingShareholderRowProps> = ({
@@ -27,7 +26,6 @@ const ExistingShareholderTableRow: React.FC<ExistingShareholderRowProps> = ({
   onUpdate,
   allowDelete,
   disableNameEdit,
-  index,
 }) => {
   const [editingCell, setEditingCell] = useState<{
     field: string;
@@ -295,7 +293,6 @@ const ExisingShareholderList: React.FC<RowsProps<ExistingShareholderProps>> = ({
                 onDelete={onDelete}
                 allowDelete={existingShareholders.length > 1 && existingShareholders.includes(shareholder)}
                 disableNameEdit={["UnusedOptionsPool", "IssuedOptions"].includes(shareholder.id)}
-                index={idx}
               />
             ))}
             
