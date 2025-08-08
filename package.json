@@ -3,14 +3,14 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev:worker\" \"npm run dev:app\"",
-    "dev:app": "cd app && npm run dev",
-    "dev:worker": "cd worker && npm run dev",
+    "dev:app": "cd app && pnpm run dev",
+    "dev:worker": "cd worker && pnpm run dev",
     "dev:local": "concurrently \"npm run dev:worker\" \"npm run dev:app:local\"",
-    "dev:app:local": "cd app && VITE_USE_LOCAL_WORKER=true npm run dev",
-    "build": "npm run build:app && npm run build:worker",
-    "build:app": "cd app && npm run build",
-    "build:worker": "cd worker && npm run deploy",
-    "install:all": "npm install && cd app && npm install && cd ../worker && npm install"
+    "dev:app:local": "cd app && VITE_USE_LOCAL_WORKER=true pnpm run dev",
+    "build": "npm run build:app && pnpm run build:worker",
+    "build:app": "cd app && pnpm run build",
+    "build:worker": "cd worker && pnpm run deploy",
+    "install:all": "npm install && cd app && pnpm install && cd ../worker && pnpm install"
   },
   "devDependencies": {
     "@types/node": "^24.1.0",
