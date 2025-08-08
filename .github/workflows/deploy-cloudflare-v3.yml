@@ -29,11 +29,11 @@ jobs:
 
       - name: Install app dependencies
         working-directory: ./app
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Build React app
         working-directory: ./app
-        run: pnpm run build
+        run: pnpm run build:worker
 
       - name: Install worker dependencies
         working-directory: ./worker

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host",
     "build": "tsc -b && vite build",
-    "build:hugo": "pnpm build && mkdir -p ../static/startup-finance/assets && cp dist/assets/* ../static/startup-finance/assets/. && cp dist/index.html ../layouts/docs/cap-table-layout.html",
+    "build:worker": "pnpm build && mkdir -p ../worker/public && rsync -avh dist/. ../worker/public/.",
     "lint": "eslint .",
     "format": "prettier . --write",
     "preview": "vite preview",
