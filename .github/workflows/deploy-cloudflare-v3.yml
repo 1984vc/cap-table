@@ -38,6 +38,17 @@ jobs:
       - name: Install worker dependencies
         run: cd worker && pnpm i
 
+      - name: Debug - Check current directory and files
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "Files in current directory:"
+          ls -la
+          echo "Files in worker directory:"
+          ls -la worker/
+          echo "Worker package.json content:"
+          cat worker/package.json
+
       - name: Deploy to Cloudflare Workers
         run: cd worker && pnpm run deploy
         env:
