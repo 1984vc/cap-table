@@ -33,7 +33,7 @@ jobs:
 
       - name: Build React app
         working-directory: ./app
-        run: pnpm run build:worker
+        run: pnpm run build
 
       - name: Install worker dependencies
         working-directory: ./worker
