@@ -121,6 +121,8 @@ cd app && npm test
 
 ## Deployment
 
+### Manual Deployment
+
 Deploy the worker to Cloudflare:
 ```bash
 npm run build:worker
@@ -132,3 +134,23 @@ npm run build:app
 ```
 
 The built app is automatically placed in `worker/public/` and served by the worker.
+
+### GitHub Actions Deployment
+
+The project includes automated deployment via GitHub Actions (`.github/workflows/deploy-cloudflare.yml`):
+
+1. **Triggers**: Pushes to `main` branch and pull requests
+2. **Process**:
+   - Builds the React app using `pnpm`
+   - Installs worker dependencies using `npm`
+   - Deploys to Cloudflare Workers using `wrangler`
+
+**Required GitHub Secrets:**
+- `CLOUDFLARE_API_TOKEN`: Your Cloudflare API token with Workers:Edit permissions
+
+**Setup Instructions:**
+1. Generate a Cloudflare API token at https://dash.cloudflare.com/profile/api-tokens
+2. Add the token as `CLOUDFLARE_API_TOKEN` in your GitHub repository secrets
+3. Push to `main` branch to trigger deployment
+
+The worker will serve the React app from the root path (`/`) while maintaining API routes at `/api/objects/*`.

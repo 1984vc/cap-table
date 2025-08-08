@@ -10,6 +10,9 @@ jobs:
   build_lint:
     runs-on: ubuntu-latest
     name: Build & Lint
+    defaults:
+      run:
+        working-directory: ./app
     steps:
       - name: Fetch Repository
         uses: actions/checkout@v1
