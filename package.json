@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "concurrently \"cd worker && pnpm run dev:local\" \"cd app && pnpm run dev\"",
     "dev:local": "concurrently \"cd worker && pnpm run dev:local\" \"cd app && pnpm run dev\"",
-    "dev:cloud": "concurrently \"cd worker && pnpm run dev\" \"cd app && pnpm run dev\"",
     "dev:staging": "cd app && pnpm run dev:staging",
     "dev:production": "cd app && pnpm run dev:production",
     "install:all": "pnpm install && cd worker && pnpm install && cd ../app && pnpm install",

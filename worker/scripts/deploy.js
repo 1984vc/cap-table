@@ -28,8 +28,9 @@ console.log(`🚀 Deploying to ${environment} environment...`);
 
 try {
   // Step 1: Build the app first
-  console.log('📦 Building frontend application...');
-  execSync('cd ../app && pnpm run build', { 
+  console.log(`📦 Building frontend application for ${environment}...`);
+  const buildCommand = environment === 'staging' ? 'pnpm run build:staging' : 'pnpm run build:production';
+  execSync(`cd ../app && ${buildCommand}`, { 
     stdio: 'inherit', 
     cwd: workerDir 
   });
@@ -41,37 +42,45 @@ try {
   if (environment === 'staging') {
     console.log('🗄️  Setting up staging database...');
     
+    // First, check if the database exists and is accessible
     try {
-      // Try to create the staging database
-      const createDbResult = execSync(
-        `pnpm exec wrangler d1 create startup-finance-worksheets-staging --config wrangler.staging.toml`, 
+      console.log('🔍 Checking if staging database exists...');
+      const listResult = execSync(
+        `pnpm exec wrangler d1 list --config wrangler.staging.toml`, 
         { cwd: workerDir, encoding: 'utf8', stdio: 'pipe' }
       );
       
-      // Extract database ID from the output
-      const dbIdMatch = createDbResult.match(/database_id = "([^"]+)"/);
-      if (dbIdMatch) {
-        const dbId = dbIdMatch[1];
-        console.log(`✅ Created staging database with ID: ${dbId}`);
-        
-        // Update the staging config with the real database ID
-        const configPath = join(workerDir, 'wrangler.staging.toml');
-        let config = readFileSync(configPath, 'utf8');
-        config = config.replace('database_id = "staging-db-placeholder"', `database_id = "${dbId}"`);
-        writeFileSync(configPath, config);
-        console.log('✅ Updated staging configuration with database ID');
+      if (listResult.includes('startup-finance-worksheets-staging')) {
+        console.log('✅ Staging database exists');
+      } else {
+        console.log('❌ Staging database not found in list');
       }
     } catch (error) {
-      // Database might already exist, that's okay
-      console.log('ℹ️  Staging database already exists or creation failed - continuing...');
+      console.log('⚠️  Could not list databases:', error.message.split('\n')[0]);
     }
 
-    // Run migrations for staging database
+    // Try to create the staging database (will fail if it already exists, which is fine)
     try {
-      console.log('🔧 Running database migrations for staging...');
-      execSync(
-        `pnpm exec wrangler d1 execute startup-finance-worksheets-staging --config wrangler.staging.toml --file migrations/0001_initial_schema.sql`, 
-        { stdio: 'pipe', cwd: workerDir }
+      console.log('🔧 Attempting to create staging database...');
+      const createDbResult = execSync(
+        `pnpm exec wrangler d1 create startup-finance-worksheets-staging --config wrangler.staging.toml`, 
+        { cwd: workerDir, encoding: 'utf8', stdio: 'inherit' }
+      );
+      console.log('✅ Created new staging database');
+    } catch (error) {
+      if (error.message.includes('already exists') || error.message.includes('A database with this name already exists')) {
+        console.log('ℹ️  Staging database already exists - continuing...');
+      } else {
+        console.log('⚠️  Database creation warning:', error.message.split('\n')[0]);
+      }
+    }
+
+    // Run migrations for staging database with full output (on REMOTE database)
+    try {
+      console.log('🔧 Running database migrations for staging (REMOTE)...');
+      const migrationResult = execSync(
+        `pnpm exec wrangler d1 execute startup-finance-worksheets-staging --config wrangler.staging.toml --remote --file migrations/0001_initial_schema.sql`, 
+        { cwd: workerDir, encoding: 'utf8', stdio: 'inherit' }
       );
       console.log('✅ Database migrations completed for staging');
     } catch (error) {
@@ -79,7 +88,22 @@ try {
       if (error.message.includes('already exists') || error.message.includes('SQLITE_ERROR')) {
         console.log('ℹ️  Database migrations have already been applied - skipping');
       } else {
-        console.log('⚠️  Database migration warning:', error.message.split('\n')[0]);
+        console.error('❌ Database migration failed:', error.message);
+        console.log('🔧 Attempting to check remote database schema...');
+        
+        // Try to query the database to see what tables exist
+        try {
+          const schemaResult = execSync(
+            `pnpm exec wrangler d1 execute startup-finance-worksheets-staging --config wrangler.staging.toml --remote --command "SELECT name FROM sqlite_master WHERE type='table';"`, 
+            { cwd: workerDir, encoding: 'utf8', stdio: 'inherit' }
+          );
+          console.log('📋 Current remote database schema check completed');
+        } catch (schemaError) {
+          console.error('❌ Could not check remote database schema:', schemaError.message);
+        }
+        
+        // Don't fail the deployment, but warn the user
+        console.log('⚠️  Continuing with deployment despite migration issues...');
       }
     }
   }
