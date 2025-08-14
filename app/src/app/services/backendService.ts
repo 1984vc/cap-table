@@ -76,7 +76,7 @@ export class BackendService {
     return response.json();
   }
 
-  async updateObject(id: string, editKey: string, data: IConversionStateData): Promise<void> {
+  async updateObject(id: string, editKey: string, data: IConversionStateData): Promise<BackendResponse> {
     const response = await fetch(`${BACKEND_URL}/api/objects/${id}-${editKey}`, {
       method: "PUT",
       headers: {
@@ -88,12 +88,15 @@ export class BackendService {
     if (!response.ok) {
       throw new Error(`Failed to update object: ${response.statusText}`);
     }
+    
+    return response.json();
   }
 
   connectWebSocket(id: string, onMessage: (message: any) => void): WebSocket {
     if (this.websockets.has(id)) {
       const existingWs = this.websockets.get(id);
       if (existingWs?.readyState === WebSocket.OPEN || existingWs?.readyState === WebSocket.CONNECTING) {
+        console.log(`♻️ Reusing existing WebSocket for ${id}`);
         return existingWs;
       }
       existingWs?.close();
@@ -101,11 +104,14 @@ export class BackendService {
     }
 
     const wsUrl = `${BACKEND_URL.replace('https://', 'wss://').replace('http://', 'ws://')}/api/objects/${id}/ws`;
+    console.log(`🔗 Connecting WebSocket for worksheet ${id} to:`, wsUrl);
     const ws = new WebSocket(wsUrl);
     
     ws.onmessage = (event) => {
       try {
+        console.log(`📨 Raw WebSocket message received for ${id}:`, event.data);
         const data = JSON.parse(event.data);
+        console.log(`📥 Parsed WebSocket message for ${id}:`, data);
         onMessage(data);
       } catch (error) {
         console.error("❌ Failed to parse websocket message:", error);
@@ -113,18 +119,18 @@ export class BackendService {
     };
 
     ws.onopen = () => {
-      console.log(`🔗 WebSocket connected`);
+      console.log(`🔗 WebSocket connected for worksheet ${id}`);
     };
 
-    ws.onclose = () => {
-      console.log(`🔌 WebSocket disconnected`);
+    ws.onclose = (event) => {
+      console.log(`🔌 WebSocket disconnected for ${id}`, { code: event.code, reason: event.reason });
       this.websockets.delete(id);
     };
 
     ws.onerror = (error) => {
       // Only log errors that aren't caused by immediate close (React StrictMode)
       if (ws.readyState !== WebSocket.CLOSED) {
-        console.error("❌ WebSocket error:", error);
+        console.error(`❌ WebSocket error for ${id}:`, error);
       }
     };
 

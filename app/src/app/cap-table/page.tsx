@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { FaMoon, FaSun } from "react-icons/fa";
 import { useStore } from "zustand";
+import * as jsondiffpatch from "jsondiffpatch";
 
 import {
   ConversionStore,
@@ -26,7 +27,9 @@ const Page: React.FC = () => {
   const [wsConnectedAt, setWsConnectedAt] = useState<Date | null>(null);
   const [wsLastError, setWsLastError] = useState<string | null>(null);
   const [isCloning, setIsCloning] = useState(false);
+  const [currentVersion, setCurrentVersion] = useState<number>(0);
   const skipNextSaveRef = useRef(false);
+  const diffPatcher = useRef(jsondiffpatch.create());
 
   const backendService = BackendService.getInstance();
   const wsRef = useRef<WebSocket | null>(null);
@@ -42,6 +45,60 @@ const Page: React.FC = () => {
   const formatTimestamp = (date: Date | null) => {
     if (!date) return null;
     return date.toISOString();
+  };
+
+  // Handle WebSocket update notifications by fetching and merging data
+  const handleUpdateNotification = async (message: any, objectId: string, editKey?: string) => {
+    if (message.type === 'update' && message.worksheetId) {
+      console.log('📥 Received update notification from WebSocket', {
+        worksheetId: message.worksheetId,
+        version: message.version,
+        lastModified: message.lastModified,
+        currentVersion: currentVersion
+      });
+      
+      // Skip if this is our own update (version should be <= currentVersion)
+      if (message.version <= currentVersion) {
+        console.log('Skipping own/old update', { messageVersion: message.version, currentVersion });
+        return;
+      }
+      
+      try {
+        // Fetch the latest data from the API
+        const response = await backendService.getObject(objectId);
+        
+        // Get current state
+        const currentState = storeRef.current?.getState();
+        
+        // Create a clean copy of states for diffing
+        const cleanCurrent = { ...currentState };
+        delete cleanCurrent.objectId;
+        delete cleanCurrent.editKey;
+        
+        const cleanRemote = { ...response.data };
+        
+        // Calculate the diff
+        const diff = diffPatcher.current.diff(cleanCurrent, cleanRemote);
+        
+        if (diff) {
+          console.log('📊 Applying remote changes', diff);
+          
+          // Apply the diff to current state
+          const patched = diffPatcher.current.patch(jsondiffpatch.clone(cleanCurrent), diff);
+          
+          // Update state with merged data
+          skipNextSaveRef.current = true;
+          const mergedState = { ...(patched || cleanCurrent), objectId, editKey };
+          storeRef.current?.setState(() => mergedState);
+          setCurrentVersion(response.version);
+          setLastUpdateReceived(new Date());
+        } else {
+          console.log('No differences found');
+        }
+      } catch (error) {
+        console.error('Failed to fetch and merge update:', error);
+      }
+    }
   };
 
   // Listen for hash changes and reload the page
@@ -94,14 +151,9 @@ const Page: React.FC = () => {
           // Connect websocket
           setWsConnectionState('connecting');
           wsRef.current = backendService.connectWebSocket(id, (message) => {
-            if (message.type === 'update' && message.data) {
-              console.log('📥 Received update from WebSocket');
-              skipNextSaveRef.current = true;
-              const stateWithEditKey = { ...message.data, objectId: id, editKey };
-              storeRef.current?.setState(() => stateWithEditKey);
-              setLastUpdateReceived(new Date());
-            }
+            handleUpdateNotification(message, id, editKey);
           });
+          setCurrentVersion(1); // New document starts at version 1
           
           // Add event listeners to track connection state
           if (wsRef.current) {
@@ -150,14 +202,9 @@ const Page: React.FC = () => {
           // Connect websocket
           setWsConnectionState('connecting');
           wsRef.current = backendService.connectWebSocket(id, (message) => {
-            if (message.type === 'update' && message.data) {
-              console.log('📥 Received update from WebSocket');
-              skipNextSaveRef.current = true;
-              const stateWithEditKey = { ...message.data, objectId: id, editKey };
-              storeRef.current?.setState(() => stateWithEditKey);
-              setLastUpdateReceived(new Date());
-            }
+            handleUpdateNotification(message, id, editKey);
           });
+          setCurrentVersion(1); // Legacy conversion starts at version 1
           
           // Add event listeners to track connection state
           if (wsRef.current) {
@@ -206,14 +253,9 @@ const Page: React.FC = () => {
             // Connect websocket for real-time updates (read-write)
             setWsConnectionState('connecting');
             wsRef.current = backendService.connectWebSocket(objectId, (message) => {
-              if (message.type === 'update' && message.data) {
-                console.log('📥 Received update from WebSocket');
-                skipNextSaveRef.current = true;
-                const stateWithEditKey = { ...message.data, objectId, editKey };
-                storeRef.current?.setState(() => stateWithEditKey);
-                setLastUpdateReceived(new Date());
-              }
+              handleUpdateNotification(message, objectId, editKey);
             });
+            setCurrentVersion(response.version);
             
             // Add event listeners to track connection state
             if (wsRef.current) {
@@ -255,14 +297,9 @@ const Page: React.FC = () => {
             // Connect websocket for real-time updates (read-only)
             setWsConnectionState('connecting');
             wsRef.current = backendService.connectWebSocket(hash, (message) => {
-              if (message.type === 'update' && message.data) {
-                console.log('📥 Received update from WebSocket (read-only)');
-                skipNextSaveRef.current = true;
-                const stateWithId = { ...message.data, objectId: hash };
-                storeRef.current?.setState(() => stateWithId);
-                setLastUpdateReceived(new Date());
-              }
+              handleUpdateNotification(message, hash);
             });
+            setCurrentVersion(response.version);
             
             // Add event listeners to track connection state
             if (wsRef.current) {
@@ -327,9 +364,10 @@ const Page: React.FC = () => {
         try {
           setIsSaving(true);
           console.log('📤 Saving changes to backend...');
-          await backendService.updateObject(state.objectId!, state.editKey!, getSerializedSelector(state));
+          const response = await backendService.updateObject(state.objectId!, state.editKey!, getSerializedSelector(state));
+          setCurrentVersion(response.version);
           setLastUpdateSent(new Date());
-          console.log('✅ Save successful');
+          console.log('✅ Save successful', { version: response.version });
         } catch (error) {
           console.error("❌ Failed to save:", error);
           setError("Failed to save changes");

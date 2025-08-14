@@ -1,14 +1,46 @@
-import { DurableObject } from "cloudflare:workers";
 import holdingHtml from "./pages/holding.html";
 import dashboardHtml from "./pages/dashboard.html";
 import demoHtml from "./pages/demo.html";
 
-interface JSONObjectData {
-	data: any;
+interface WorksheetData {
+	id: string;
+	edit_key: string;
+	worksheet_data: string; // JSON serialized data
 	version: number;
-	lastModified: string;
-	id?: string;
-	editKey?: string;
+	last_modified: string;
+	created_at: string;
+}
+
+// Default worksheet data structure
+function getDefaultWorksheetData() {
+	return {
+		revenue: {
+			amount: 0,
+			growthMode: 'linear' as const,
+			growthRate: 10,
+			growthInterval: 'monthly' as const
+		},
+		costs: [],
+		startDate: new Date().toISOString().split('T')[0],
+		runway: 24,
+		initialFunding: 0,
+		valuation: {
+			preMoneyValuation: 0,
+			equityGiven: 0
+		},
+		teamMembers: [],
+		office: {
+			type: 'remote' as const,
+			cost: 0
+		},
+		metrics: {
+			currentMRR: 0,
+			customerCount: 0,
+			churnRate: 0,
+			cac: 0,
+			ltv: 0
+		}
+	};
 }
 
 function generateBase58Id(length: number = 8): string {
@@ -36,182 +68,325 @@ function validateBase58(str: string): boolean {
 	return base58Regex.test(str);
 }
 
-export class JSONObjectStore extends DurableObject<Env> {
-	private sessions: Set<WebSocket> = new Set();
+// Durable Object for managing WebSocket connections per worksheet
+export class WorksheetCoordinatorDurableObject implements DurableObject {
+	private state: DurableObjectState;
+	private env: Env;
+	private sessions: Set<WebSocket>;
 
-	constructor(ctx: DurableObjectState, env: Env) {
-		super(ctx, env);
+	constructor(state: DurableObjectState, env: Env) {
+		this.state = state;
+		this.env = env;
+		this.sessions = new Set();
 	}
 
 	async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
 		
-		if (url.pathname === "/websocket") {
-			return this.handleWebSocketUpgrade(request);
-		}
+		// Handle WebSocket upgrade
+		if (request.headers.get("Upgrade") === "websocket") {
+			const webSocketPair = new WebSocketPair();
+			const [client, server] = Object.values(webSocketPair);
 
-		const corsHeaders = {
-			"Access-Control-Allow-Origin": "*",
-			"Access-Control-Allow-Methods": "GET, PUT, OPTIONS",
-			"Access-Control-Allow-Headers": "Content-Type",
-		};
+			this.state.acceptWebSocket(server);
+			this.sessions.add(server);
+			console.log(`🔗 WebSocket connected. Total sessions: ${this.sessions.size}`);
 
-		if (request.method === "OPTIONS") {
-			return new Response(null, { headers: corsHeaders });
-		}
-
-		try {
-			if (request.method === "GET") {
-				return await this.handleGet(request, corsHeaders);
-			} else if (request.method === "PUT") {
-				return await this.handlePut(request, corsHeaders);
-			} else {
-				return new Response("Method not allowed", { 
-					status: 405, 
-					headers: corsHeaders 
-				});
-			}
-		} catch (error) {
-			console.error("Error handling request:", error);
-			return new Response("Internal server error", { 
-				status: 500, 
-				headers: corsHeaders 
+			return new Response(null, {
+				status: 101,
+				webSocket: client,
 			});
 		}
+
+		// Handle broadcast messages from the main worker
+		if (request.method === "POST" && url.pathname === "/broadcast") {
+			const message = await request.text();
+			console.log(`🔊 Durable Object received broadcast message:`, message);
+			console.log(`👥 Broadcasting to ${this.sessions.size} connected clients`);
+			this.broadcast(message);
+			return new Response("OK");
+		}
+
+		return new Response("Not found", { status: 404 });
 	}
 
-	private async handleWebSocketUpgrade(request: Request): Promise<Response> {
-		const webSocketPair = new WebSocketPair();
-		const [client, server] = Object.values(webSocketPair);
-
-		server.accept();
-		this.sessions.add(server);
-
-		server.addEventListener("close", () => {
-			this.sessions.delete(server);
+	async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+		// Echo messages to all connected clients
+		const response = JSON.stringify({
+			type: "message",
+			data: message,
+			connections: this.sessions.size,
+			timestamp: new Date().toISOString()
 		});
 
-		server.addEventListener("error", () => {
-			this.sessions.delete(server);
-		});
+		this.broadcast(response);
+	}
 
-		return new Response(null, {
-			status: 101,
-			webSocket: client,
+	async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean): Promise<void> {
+		this.sessions.delete(ws);
+	}
+
+	async webSocketError(ws: WebSocket, error: unknown): Promise<void> {
+		this.sessions.delete(ws);
+	}
+
+	private broadcast(message: string): void {
+		this.sessions.forEach((ws) => {
+			try {
+				if (ws.readyState === WebSocket.READY_STATE_OPEN) {
+					ws.send(message);
+				}
+			} catch (error) {
+				console.error("Error broadcasting to WebSocket:", error);
+				this.sessions.delete(ws);
+			}
+		});
+	}
+}
+
+async function handleGet(request: Request, env: Env, compositeId: string): Promise<Response> {
+	const corsHeaders = {
+		"Access-Control-Allow-Origin": "*",
+		"Access-Control-Allow-Methods": "GET, PUT, OPTIONS",
+		"Access-Control-Allow-Headers": "Content-Type, X-Edit-Key, X-Object-Id",
+	};
+
+	const parsedId = parseCompositeId(compositeId);
+	if (!parsedId) {
+		return new Response(JSON.stringify({ error: "Invalid ID format" }), {
+			status: 400,
+			headers: { ...corsHeaders, "Content-Type": "application/json" },
 		});
 	}
 
-	private async handleGet(request: Request, corsHeaders: Record<string, string>): Promise<Response> {
-		const url = new URL(request.url);
-		const apiMatch = url.pathname.match(/^\/api\/objects\/([^\/]+)/);
-		const compositeId = apiMatch ? apiMatch[1] : null;
-		const parsedId = compositeId ? parseCompositeId(compositeId) : null;
-		const editKey = parsedId ? parsedId.editKey : undefined;
+	const { id, editKey } = parsedId;
 
-		const stored = await this.ctx.storage.get<JSONObjectData>("jsonData");
+	try {
+		// Query the D1 database for the worksheet
+		const result = await env.DB.prepare(
+			"SELECT id, edit_key, worksheet_data, version, last_modified FROM finance_worksheets WHERE id = ?"
+		).bind(id).first<WorksheetData>();
 
-		if (!stored || (editKey && editKey !== stored.editKey)) {
-			return new Response(JSON.stringify({ error: "Object not found" }), {
-				status: 404,
+		if (!result) {
+			// Worksheet doesn't exist - create it with default data if edit key is provided
+			if (editKey) {
+				// Auto-create worksheet with default data
+				const now = new Date().toISOString();
+				const defaultData = getDefaultWorksheetData();
+				const version = 1;
+
+				try {
+					await env.DB.prepare(
+						"INSERT INTO finance_worksheets (id, edit_key, worksheet_data, version, last_modified, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+					).bind(id, editKey, JSON.stringify(defaultData), version, now, now).run();
+
+					// Return the newly created worksheet
+					const publicData = {
+						data: defaultData,
+						version: version,
+						lastModified: now,
+						created: true // Signal that this was just created
+					};
+
+					return new Response(JSON.stringify(publicData), {
+						status: 200,
+						headers: { ...corsHeaders, "Content-Type": "application/json" },
+					});
+				} catch (createError) {
+					console.error("Error creating worksheet:", createError);
+					return new Response(JSON.stringify({ error: "Failed to create worksheet" }), {
+						status: 500,
+						headers: { ...corsHeaders, "Content-Type": "application/json" },
+					});
+				}
+			} else {
+				// No edit key provided, return 404
+				return new Response(JSON.stringify({ 
+					error: "Worksheet not found",
+					message: "To create a new worksheet, include the edit key in the URL (e.g., /api/objects/id-editkey)"
+				}), {
+					status: 404,
+					headers: { ...corsHeaders, "Content-Type": "application/json" },
+				});
+			}
+		}
+
+		// Check edit key if provided
+		if (editKey && editKey !== result.edit_key) {
+			return new Response(JSON.stringify({ error: "Invalid edit key" }), {
+				status: 403,
 				headers: { ...corsHeaders, "Content-Type": "application/json" },
 			});
 		}
 
+		// Parse the stored JSON data
+		const worksheetData = JSON.parse(result.worksheet_data);
+
 		const publicData = {
-			data: stored.data,
-			version: stored.version,
-			lastModified: stored.lastModified,
+			data: worksheetData,
+			version: result.version,
+			lastModified: result.last_modified,
 		};
 
 		return new Response(JSON.stringify(publicData), {
 			status: 200,
 			headers: { ...corsHeaders, "Content-Type": "application/json" },
 		});
+	} catch (error) {
+		console.error("Error in GET handler:", error);
+		return new Response(JSON.stringify({ error: "Internal server error" }), {
+			status: 500,
+			headers: { ...corsHeaders, "Content-Type": "application/json" }
+		});
 	}
+}
 
-	private async handlePut(request: Request, corsHeaders: Record<string, string>): Promise<Response> {
+async function handlePut(request: Request, env: Env, compositeId: string): Promise<Response> {
+	const corsHeaders = {
+		"Access-Control-Allow-Origin": "*",
+		"Access-Control-Allow-Methods": "GET, PUT, OPTIONS",
+		"Access-Control-Allow-Headers": "Content-Type, X-Edit-Key, X-Object-Id",
+	};
+
+	try {
+		const body = await request.text();
+		let newData: any;
+
 		try {
-			const body = await request.text();
-			let newData: any;
+			newData = JSON.parse(body);
+		} catch {
+			return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+				status: 400,
+				headers: { ...corsHeaders, "Content-Type": "application/json" }
+			});
+		}
 
-			try {
-				newData = JSON.parse(body);
-			} catch {
-				return new Response(JSON.stringify({ error: "Invalid JSON" }), {
-					status: 400,
+		const editKey = request.headers.get('X-Edit-Key');
+		const objectId = request.headers.get('X-Object-Id');
+		
+		const parsedId = parseCompositeId(compositeId);
+		if (!parsedId) {
+			return new Response(JSON.stringify({ error: "Invalid ID format" }), {
+				status: 400,
+				headers: { ...corsHeaders, "Content-Type": "application/json" },
+			});
+		}
+
+		const { id } = parsedId;
+
+		// Check if worksheet exists
+		const existing = await env.DB.prepare(
+			"SELECT id, edit_key, version FROM finance_worksheets WHERE id = ?"
+		).bind(id).first<Pick<WorksheetData, 'id' | 'edit_key' | 'version'>>();
+
+		if (existing) {
+			// Update existing worksheet
+			// Check if edit key matches from either header or URL
+			const urlEditKey = parsedId.editKey;
+			const validEditKey = editKey || urlEditKey;
+			
+			if (!validEditKey || validEditKey !== existing.edit_key) {
+				return new Response(JSON.stringify({ error: "Edit key required for updates" }), {
+					status: 403,
 					headers: { ...corsHeaders, "Content-Type": "application/json" }
 				});
 			}
 
-			const editKey = request.headers.get('X-Edit-Key');
-			const objectId = request.headers.get('X-Object-Id');
-			const existing = await this.ctx.storage.get<JSONObjectData>("jsonData");
+			const newVersion = existing.version + 1;
+			const now = new Date().toISOString();
 
-			if (existing) {
-				if (!editKey || editKey !== existing.editKey) {
-					return new Response(JSON.stringify({ error: "Edit key required for updates" }), {
-						status: 403,
-						headers: { ...corsHeaders, "Content-Type": "application/json" }
-					});
-				}
-			} else {
-				if (!editKey) {
-					return new Response(JSON.stringify({ error: "Edit key required for creation" }), {
-						status: 400,
-						headers: { ...corsHeaders, "Content-Type": "application/json" }
-					});
-				}
+			await env.DB.prepare(
+				"UPDATE finance_worksheets SET worksheet_data = ?, version = ?, last_modified = ? WHERE id = ?"
+			).bind(JSON.stringify(newData), newVersion, now, id).run();
+
+			// Broadcast update to connected WebSocket clients via Durable Object
+			const durableObjectId = env.WORKSHEET_COORDINATOR.idFromName(id);
+			const durableObjectStub = env.WORKSHEET_COORDINATOR.get(durableObjectId);
+			
+			// Send only notification with version info, not the full data
+			const updateMessage = JSON.stringify({
+				type: "update",
+				worksheetId: id,
+				version: newVersion,
+				lastModified: now
+			});
+
+			try {
+				console.log(`📡 Broadcasting update notification for worksheet ${id}, version ${newVersion}`);
+				await durableObjectStub.fetch("http://fake-host/broadcast", {
+					method: "POST",
+					body: updateMessage
+				});
+				console.log(`✅ Broadcast successful for worksheet ${id}`);
+			} catch (error) {
+				console.error("❌ Error broadcasting to Durable Object:", error);
 			}
 
-			const version = existing ? existing.version + 1 : 1;
-			
-			const objectData: JSONObjectData = {
-				data: newData,
-				version,
-				lastModified: new Date().toISOString(),
-				id: objectId || existing?.id,
-				editKey: editKey || existing?.editKey
-			};
-
-			await this.ctx.storage.put("jsonData", objectData);
-
-			this.broadcast(JSON.stringify({
-				type: "update",
-				data: objectData.data,
-				version: objectData.version,
-				lastModified: objectData.lastModified
-			}));
-
 			const responseData = {
-				data: objectData.data,
-				version: objectData.version,
-				lastModified: objectData.lastModified,
-				...(version === 1 ? { id: objectData.id, editKey: objectData.editKey } : {})
+				data: newData,
+				version: newVersion,
+				lastModified: now,
 			};
 
 			return new Response(JSON.stringify(responseData), {
 				status: 200,
 				headers: { ...corsHeaders, "Content-Type": "application/json" }
 			});
-		} catch (error) {
-			console.error("Error in PUT handler:", error);
-			return new Response(JSON.stringify({ error: "Failed to update object" }), {
-				status: 500,
+		} else {
+			// Create new worksheet
+			// Accept edit key from either header or URL
+			const urlEditKey = parsedId.editKey;
+			const finalEditKey = editKey || urlEditKey || generateBase58Id(16);
+			
+			const worksheetId = objectId || id;
+			const now = new Date().toISOString();
+			const version = 1;
+
+			await env.DB.prepare(
+				"INSERT INTO finance_worksheets (id, edit_key, worksheet_data, version, last_modified, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+			).bind(worksheetId, finalEditKey, JSON.stringify(newData), version, now, now).run();
+
+			// Broadcast creation to connected WebSocket clients via Durable Object
+			const durableObjectId = env.WORKSHEET_COORDINATOR.idFromName(worksheetId);
+			const durableObjectStub = env.WORKSHEET_COORDINATOR.get(durableObjectId);
+			
+			// Send only notification with version info, not the full data
+			const createMessage = JSON.stringify({
+				type: "update",
+				worksheetId: worksheetId,
+				version: version,
+				lastModified: now
+			});
+
+			try {
+				console.log(`📡 Broadcasting creation notification for worksheet ${worksheetId}, version ${version}`);
+				await durableObjectStub.fetch("http://fake-host/broadcast", {
+					method: "POST",
+					body: createMessage
+				});
+				console.log(`✅ Broadcast successful for worksheet ${worksheetId}`);
+			} catch (error) {
+				console.error("❌ Error broadcasting to Durable Object:", error);
+			}
+
+			const responseData = {
+				data: newData,
+				version: version,
+				lastModified: now,
+				id: worksheetId,
+				editKey: finalEditKey
+			};
+
+			return new Response(JSON.stringify(responseData), {
+				status: 200,
 				headers: { ...corsHeaders, "Content-Type": "application/json" }
 			});
 		}
-	}
-
-	private broadcast(message: string): void {
-		this.sessions.forEach((session) => {
-			try {
-				if (session.readyState === WebSocket.READY_STATE_OPEN) {
-					session.send(message);
-				}
-			} catch (error) {
-				console.error("Error broadcasting to WebSocket:", error);
-				this.sessions.delete(session);
-			}
+	} catch (error) {
+		console.error("Error in PUT handler:", error);
+		return new Response(JSON.stringify({ error: "Failed to update object" }), {
+			status: 500,
+			headers: { ...corsHeaders, "Content-Type": "application/json" }
 		});
 	}
 }
@@ -222,14 +397,14 @@ export default {
 		const corsHeaders = {
 			"Access-Control-Allow-Origin": "*",
 			"Access-Control-Allow-Methods": "GET, PUT, OPTIONS",
-			"Access-Control-Allow-Headers": "Content-Type",
+			"Access-Control-Allow-Headers": "Content-Type, X-Edit-Key, X-Object-Id",
 		};
 
 		if (request.method === "OPTIONS") {
 			return new Response(null, { headers: corsHeaders });
 		}
 
-		// Handle API routes first
+		// Handle API routes
 		const apiMatch = url.pathname.match(/^\/api\/objects\/([^\/]+)(?:\/(.*))?$/);
 		if (apiMatch) {
 			const [, compositeId, subPath] = apiMatch;
@@ -242,18 +417,24 @@ export default {
 				});
 			}
 
-			const id: DurableObjectId = env.MY_DURABLE_OBJECT.idFromName(parsedId.id);
-			const stub = env.MY_DURABLE_OBJECT.get(id);
-
-			const modifiedRequest = new Request(request);
-			modifiedRequest.headers.set('X-Edit-Key', parsedId.editKey || '');
-			modifiedRequest.headers.set('X-Object-Id', parsedId.id);
-
+			// Handle WebSocket upgrade for this worksheet
 			if (subPath === "ws" && request.headers.get("Upgrade") === "websocket") {
-				return stub.fetch(new Request(`${url.origin}/websocket`, modifiedRequest));
+				const durableObjectId = env.WORKSHEET_COORDINATOR.idFromName(parsedId.id);
+				const durableObjectStub = env.WORKSHEET_COORDINATOR.get(durableObjectId);
+				return durableObjectStub.fetch(request);
 			}
 
-			return stub.fetch(modifiedRequest);
+			// Handle regular API requests
+			if (request.method === "GET") {
+				return handleGet(request, env, compositeId);
+			} else if (request.method === "PUT") {
+				return handlePut(request, env, compositeId);
+			} else {
+				return new Response("Method not allowed", { 
+					status: 405, 
+					headers: corsHeaders 
+				});
+			}
 		}
 
 		// Serve static assets (React app)

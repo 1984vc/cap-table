@@ -442,7 +442,7 @@ const SafeNoteList: React.FC<RowsProps<SAFEProps>> = ({
               <td className="px-3 py-2 w-12"></td>
               <td className="px-3 py-2 w-1/3"></td>
               <td className="px-3 py-2 text-right text-gray-900 dark:text-white w-1/12">
-                {(totalOwnership * 100).toFixed(2)}%
+                {totalOwnership.toFixed(2)}%
               </td>
               <td className="px-2 py-2 w-8"></td>
             </tr>
