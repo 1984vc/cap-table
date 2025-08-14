@@ -1,0 +1,32 @@
+# Local development configuration for Miniflare
+# This file is used for local development without Cloudflare dependencies
+
+name = "1984-startup-finance-worker-local"
+main = "src/index.ts"
+compatibility_date = "2025-06-20"
+
+# Migrations for Durable Objects
+[[migrations]]
+tag = "v1"
+new_classes = ["WorksheetCoordinatorDurableObject"]
+
+# Local Durable Objects configuration
+[durable_objects]
+bindings = [
+  { class_name = "WorksheetCoordinatorDurableObject", name = "WORKSHEET_COORDINATOR" }
+]
+
+# Local D1 database configuration (uses SQLite)
+[[d1_databases]]
+binding = "DB"
+database_name = "startup-finance-worksheets-local"
+database_id = "local-db"
+
+# Local static assets
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# Disable observability for local development
+[observability]
+enabled = false

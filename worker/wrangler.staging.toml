@@ -1,0 +1,30 @@
+# Staging environment configuration
+name = "1984-startup-finance-worker-staging"
+main = "src/index.ts"
+compatibility_date = "2025-06-20"
+
+# Migrations for Durable Objects
+[[migrations]]
+tag = "v1"
+new_classes = ["WorksheetCoordinatorDurableObject"]
+
+# Staging Durable Objects configuration
+[durable_objects]
+bindings = [
+  { class_name = "WorksheetCoordinatorDurableObject", name = "WORKSHEET_COORDINATOR" }
+]
+
+# Staging D1 database configuration
+[[d1_databases]]
+binding = "DB"
+database_name = "startup-finance-worksheets-staging"
+database_id = "459e97ea-b0c7-4955-96e9-77709e929522"  # Will be created/updated by deployment script
+
+# Static assets
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# Enable observability for staging
+[observability]
+enabled = true

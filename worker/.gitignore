@@ -170,3 +170,6 @@ dist
 
 .dev.vars
 .wrangler/
+
+# Miniflare local storage
+.miniflare/

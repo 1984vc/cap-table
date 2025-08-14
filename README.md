@@ -4,27 +4,29 @@ This project consists of a React app (`app/`) and a Cloudflare Worker (`worker/`
 
 ## Development Modes
 
-### 1. Production Mode (Default)
-The app connects to the deployed Cloudflare Worker in production.
+### 1. Local Development Mode (Recommended)
+Both app and worker run locally with full Miniflare emulation - **no Cloudflare account required**.
 
 ```bash
-npm run dev
-```
-
-This runs:
-- App on `http://localhost:5173` (connects to production worker)
-- Worker locally on `http://localhost:8787` (for testing)
-
-### 2. Local Development Mode
-Both app and worker run locally with full integration.
-
-```bash
-npm run dev:local
+pnpm run dev:local
 ```
 
 This runs:
 - App on `http://localhost:5173` (connects to local worker)
-- Worker on `http://localhost:8787`
+- Worker on `http://localhost:8787` (using Miniflare)
+- Local SQLite database with full persistence
+- Durable Objects emulation for WebSocket support
+
+### 2. Cloud Development Mode
+The app connects to the deployed Cloudflare Worker in production.
+
+```bash
+pnpm run dev:cloud
+```
+
+This runs:
+- App on `http://localhost:5173` (connects to production worker)
+- Worker locally on `http://localhost:8787` (requires Cloudflare account)
 
 ## Environment Configuration
 
@@ -74,13 +76,27 @@ npm run install:all
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Production mode - app connects to deployed worker |
-| `npm run dev:local` | Local mode - both app and worker run locally |
-| `npm run dev:app` | Run only the app (production backend) |
-| `npm run dev:worker` | Run only the worker locally |
-| `npm run build` | Build both app and deploy worker |
-| `npm run build:app` | Build app only |
-| `npm run build:worker` | Deploy worker to Cloudflare |
+| `pnpm run dev` | Local mode - both app and worker run locally (Miniflare) |
+| `pnpm run dev:local` | Same as above - full local development |
+| `pnpm run dev:cloud` | Cloud mode - app connects to deployed worker |
+| `pnpm run dev:staging` | Frontend-only development against staging backend |
+| `pnpm run dev:production` | Frontend-only development against production backend |
+| `pnpm run setup:local` | Initialize local database for Miniflare |
+| `pnpm run install:all` | Install dependencies for all packages |
+| `pnpm run build` | Build app for production |
+| `pnpm run build:staging` | Build app for staging environment |
+| `pnpm run build:production` | Build app for production environment |
+| `pnpm run build:local` | Build app for local development |
+| `pnpm run clean` | Clean all node_modules and local data |
+
+### Worker-specific Commands
+
+| Command | Description |
+|---------|-------------|
+| `cd worker && pnpm run dev:local` | Start worker with Miniflare |
+| `cd worker && pnpm run dev:miniflare` | Start worker with wrangler local mode |
+| `cd worker && pnpm run dev` | Start worker with Cloudflare (requires account) |
+| `cd worker && pnpm run db:init` | Initialize local SQLite database |
 
 ### Switching Between Modes
 
@@ -103,6 +119,37 @@ The Vite dev server is configured with a proxy that forwards `/api/*` requests t
 - In local mode: requests go to `http://localhost:8787`
 
 This eliminates CORS issues during development.
+
+## Local Development with Miniflare
+
+The project uses Miniflare for local development, providing a complete Cloudflare Workers environment without requiring a Cloudflare account.
+
+### Features Supported Locally
+
+✅ **Full API compatibility** - All endpoints work exactly like production  
+✅ **WebSocket connections** - Real-time updates via Durable Objects  
+✅ **Database persistence** - SQLite-based D1 emulation  
+✅ **Static asset serving** - Serves the React app  
+✅ **Hot reloading** - Automatic restart on code changes  
+
+### Local Storage
+
+Miniflare stores data locally in `worker/.miniflare/`:
+- `.miniflare/d1/` - SQLite database files
+- `.miniflare/durable-objects/` - Durable Object state  
+- `.miniflare/cache/` - Cache API data
+
+This directory is gitignored and persists between restarts.
+
+### Troubleshooting Local Development
+
+**Database Issues:**
+```bash
+cd worker && rm -rf .miniflare/d1 && pnpm run db:init
+```
+
+**Port Conflicts:**
+Modify the port in `worker/miniflare.config.js` if 8787 is in use.
 
 ## WebSocket Support
 

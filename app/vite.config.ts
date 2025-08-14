@@ -21,9 +21,10 @@ export default defineConfig({
       },
     },
   },
-  base: '/',
+  base: './',
   build: {
     outDir: '../worker/public',
-    emptyOutDir: true
+    emptyOutDir: true,
+    assetsDir: 'assets',
   }
 })

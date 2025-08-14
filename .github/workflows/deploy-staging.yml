@@ -1,0 +1,42 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [staging]
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    name: Deploy to Staging Environment
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm run install:all
+
+      - name: Deploy to staging
+        run: pnpm run deploy:staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Deployment summary
+        run: |
+          echo "🎉 Staging deployment completed successfully!"
+          echo "📍 Staging URL: https://1984-startup-finance-worker-staging.mdp-005.workers.dev"
+          echo "🔗 App URL: https://1984-startup-finance-worker-staging.mdp-005.workers.dev"
+          echo ""
+          echo "💡 To test frontend against staging:"
+          echo "   VITE_BACKEND_URL=https://1984-startup-finance-worker-staging.mdp-005.workers.dev pnpm run dev"

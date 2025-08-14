@@ -1,20 +1,26 @@
 {
-  "name": "startup-finance-monorepo",
+  "name": "startup-finance",
+  "version": "1.0.0",
   "private": true,
+  "description": "Startup Finance Calculator with Cap Table Management",
   "scripts": {
-    "dev": "concurrently \"npm run dev:worker\" \"npm run dev:app\"",
-    "dev:app": "cd app && pnpm run dev",
-    "dev:worker": "cd worker && pnpm run dev",
-    "dev:local": "concurrently \"npm run dev:worker\" \"npm run dev:app:local\"",
-    "dev:app:local": "cd app && VITE_USE_LOCAL_WORKER=true pnpm run dev",
-    "build": "npm run build:app && pnpm run build:worker",
-    "build:app": "cd app && pnpm run build",
-    "build:worker": "cd worker && pnpm run deploy",
-    "install:all": "npm install && cd app && pnpm install && cd ../worker && pnpm install"
+    "dev": "concurrently \"cd worker && pnpm run dev:local\" \"cd app && pnpm run dev\"",
+    "dev:local": "concurrently \"cd worker && pnpm run dev:local\" \"cd app && pnpm run dev\"",
+    "dev:cloud": "concurrently \"cd worker && pnpm run dev\" \"cd app && pnpm run dev\"",
+    "dev:staging": "cd app && pnpm run dev:staging",
+    "dev:production": "cd app && pnpm run dev:production",
+    "install:all": "pnpm install && cd worker && pnpm install && cd ../app && pnpm install",
+    "build": "cd app && pnpm run build",
+    "build:staging": "cd app && pnpm run build:staging",
+    "build:production": "cd app && pnpm run build:production",
+    "build:local": "cd app && pnpm run build:local",
+    "deploy:staging": "cd worker && pnpm run deploy:staging",
+    "deploy:production": "cd worker && pnpm run deploy:production",
+    "test": "cd app && pnpm run test",
+    "setup:local": "cd worker && pnpm run db:init",
+    "clean": "rm -rf node_modules worker/node_modules app/node_modules worker/.miniflare"
   },
   "devDependencies": {
-    "@types/node": "^24.1.0",
-    "concurrently": "^9.1.0",
-    "wrangler": "^4.27.0"
+    "concurrently": "^8.2.2"
   }
 }
