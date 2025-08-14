@@ -166,4 +166,25 @@ export class BackendService {
     this.websockets.forEach((ws) => ws.close());
     this.websockets.clear();
   }
+
+  async convertLegacyHash(hash: string): Promise<{ id: string; editKey: string; data: any }> {
+    const response = await fetch(`${BACKEND_URL}/api/legacy/convert`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ hash }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to convert legacy hash: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return {
+      id: result.id,
+      editKey: result.editKey,
+      data: result.data,
+    };
+  }
 }

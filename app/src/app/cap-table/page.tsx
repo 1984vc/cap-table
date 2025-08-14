@@ -187,13 +187,11 @@ const Page: React.FC = () => {
         }
         
       } else if (hash.charAt(0) === "A") {
-        // Legacy base64 hash - convert to new system
+        // Legacy base64 hash - convert using backend
         try {
-          const { decompressState } = await import("@/utils/stateCompression");
-          const legacyState = decompressState(hash);
-          
-          const { id, editKey } = await backendService.createObject(legacyState);
-          const stateWithIds = { ...legacyState, objectId: id, editKey };
+          console.log("🔄 Converting legacy hash using backend...");
+          const { id, editKey, data } = await backendService.convertLegacyHash(hash);
+          const stateWithIds = { ...data, objectId: id, editKey };
           storeRef.current?.setState(stateWithIds);
           updateRecentStates(id, stateWithIds);
           window.location.hash = `${id}-${editKey}`;
@@ -225,16 +223,61 @@ const Page: React.FC = () => {
             });
           }
           
+          console.log("✅ Successfully converted legacy hash to new format");
+          
         } catch (error) {
           console.error("Failed to convert legacy hash:", error);
-          // Fallback to new document
-          const uuid = generateBase58UUID();
-          const newState = initialState({ ...getRandomData() });
-          const fallbackState = { ...newState, objectId: uuid };
-          storeRef.current?.setState(fallbackState);
-          updateRecentStates(uuid, fallbackState);
-          window.location.hash = uuid;
-          setStateId(uuid);
+          // Fallback to local decompression if backend fails
+          try {
+            console.log("🔄 Falling back to local decompression...");
+            const { decompressState } = await import("@/utils/stateCompression");
+            const legacyState = decompressState(hash);
+            
+            const { id, editKey } = await backendService.createObject(legacyState);
+            const stateWithIds = { ...legacyState, objectId: id, editKey };
+            storeRef.current?.setState(stateWithIds);
+            updateRecentStates(id, stateWithIds);
+            window.location.hash = `${id}-${editKey}`;
+            setStateId(`${id}-${editKey}`);
+            
+            // Connect websocket
+            setWsConnectionState('connecting');
+            wsRef.current = backendService.connectWebSocket(id, (message) => {
+              handleUpdateNotification(message, id, editKey);
+            });
+            setCurrentVersion(1); // Legacy conversion starts at version 1
+            
+            // Add event listeners to track connection state
+            if (wsRef.current) {
+              wsRef.current.addEventListener('open', () => {
+                setWsConnectionState('connected');
+                setWsConnectedAt(new Date());
+                setWsLastError(null);
+              });
+              
+              wsRef.current.addEventListener('close', () => {
+                setWsConnectionState('disconnected');
+                setWsConnectedAt(null);
+              });
+              
+              wsRef.current.addEventListener('error', () => {
+                setWsConnectionState('error');
+                setWsLastError('WebSocket connection error');
+              });
+            }
+            
+            console.log("✅ Successfully converted legacy hash using fallback");
+          } catch (fallbackError) {
+            console.error("Fallback conversion also failed:", fallbackError);
+            // Final fallback to new document
+            const uuid = generateBase58UUID();
+            const newState = initialState({ ...getRandomData() });
+            const fallbackState = { ...newState, objectId: uuid };
+            storeRef.current?.setState(fallbackState);
+            updateRecentStates(uuid, fallbackState);
+            window.location.hash = uuid;
+            setStateId(uuid);
+          }
         }
         
       } else {

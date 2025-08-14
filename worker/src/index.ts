@@ -1,6 +1,7 @@
 import holdingHtml from "./pages/holding.html";
 import dashboardHtml from "./pages/dashboard.html";
 import demoHtml from "./pages/demo.html";
+import { decompressState, isLegacyHash } from "./utils/stateCompression";
 
 interface WorksheetData {
 	id: string;
@@ -241,6 +242,91 @@ async function handleGet(request: Request, env: Env, compositeId: string): Promi
 	}
 }
 
+async function handleLegacyConversion(request: Request, env: Env): Promise<Response> {
+	const corsHeaders = {
+		"Access-Control-Allow-Origin": "*",
+		"Access-Control-Allow-Methods": "GET, PUT, POST, OPTIONS",
+		"Access-Control-Allow-Headers": "Content-Type",
+	};
+
+	try {
+		const body = await request.text();
+		let requestData: { hash: string };
+
+		try {
+			requestData = JSON.parse(body);
+		} catch {
+			return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+				status: 400,
+				headers: { ...corsHeaders, "Content-Type": "application/json" }
+			});
+		}
+
+		const { hash } = requestData;
+
+		if (!hash || !isLegacyHash(hash)) {
+			return new Response(JSON.stringify({ error: "Invalid or missing legacy hash" }), {
+				status: 400,
+				headers: { ...corsHeaders, "Content-Type": "application/json" }
+			});
+		}
+
+		// Decompress the legacy state
+		let decompressedState: any;
+		try {
+			decompressedState = decompressState(hash);
+		} catch (error) {
+			console.error("Failed to decompress legacy state:", error);
+			return new Response(JSON.stringify({ error: "Failed to decompress legacy state" }), {
+				status: 400,
+				headers: { ...corsHeaders, "Content-Type": "application/json" }
+			});
+		}
+
+		// Generate new IDs
+		const id = generateBase58Id(22); // Match the frontend ID length
+		const editKey = generateBase58Id(16);
+		const now = new Date().toISOString();
+		const version = 1;
+
+		// Store the converted state in the database
+		try {
+			await env.DB.prepare(
+				"INSERT INTO finance_worksheets (id, edit_key, worksheet_data, version, last_modified, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+			).bind(id, editKey, JSON.stringify(decompressedState), version, now, now).run();
+
+			console.log(`✅ Successfully converted legacy hash to worksheet ${id}`);
+
+			// Return the new IDs and data
+			const responseData = {
+				id,
+				editKey,
+				data: decompressedState,
+				version,
+				lastModified: now,
+				converted: true
+			};
+
+			return new Response(JSON.stringify(responseData), {
+				status: 200,
+				headers: { ...corsHeaders, "Content-Type": "application/json" }
+			});
+		} catch (dbError) {
+			console.error("Failed to store converted worksheet:", dbError);
+			return new Response(JSON.stringify({ error: "Failed to store converted worksheet" }), {
+				status: 500,
+				headers: { ...corsHeaders, "Content-Type": "application/json" }
+			});
+		}
+	} catch (error) {
+		console.error("Error in legacy conversion handler:", error);
+		return new Response(JSON.stringify({ error: "Internal server error" }), {
+			status: 500,
+			headers: { ...corsHeaders, "Content-Type": "application/json" }
+		});
+	}
+}
+
 async function handlePut(request: Request, env: Env, compositeId: string): Promise<Response> {
 	const corsHeaders = {
 		"Access-Control-Allow-Origin": "*",
@@ -396,12 +482,17 @@ export default {
 		const url = new URL(request.url);
 		const corsHeaders = {
 			"Access-Control-Allow-Origin": "*",
-			"Access-Control-Allow-Methods": "GET, PUT, OPTIONS",
+			"Access-Control-Allow-Methods": "GET, PUT, POST, OPTIONS",
 			"Access-Control-Allow-Headers": "Content-Type, X-Edit-Key, X-Object-Id",
 		};
 
 		if (request.method === "OPTIONS") {
 			return new Response(null, { headers: corsHeaders });
+		}
+
+		// Handle legacy conversion endpoint
+		if (url.pathname === "/api/legacy/convert" && request.method === "POST") {
+			return handleLegacyConversion(request, env);
 		}
 
 		// Handle API routes
