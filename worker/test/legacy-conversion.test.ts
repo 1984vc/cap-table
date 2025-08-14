@@ -11,18 +11,26 @@ describe("Legacy Hash Conversion", () => {
   });
 
   it("should decompress legacy hash to valid state", () => {
-    const decompressedState = decompressState(legacyHash);
+    const state = decompressState(legacyHash);
     
-    // Check that we get a valid state object
-    expect(decompressedState).toBeDefined();
-    expect(typeof decompressedState).toBe("object");
+    // Basic structure validation
+    expect(state).toBeDefined();
+    expect(typeof state).toBe("object");
+    expect(state).toHaveProperty("rowData");
+    expect(Array.isArray(state.rowData)).toBe(true);
     
-    // Check that data contains expected cap table structure
-    expect(decompressedState).toHaveProperty("rowData");
-    expect(Array.isArray(decompressedState.rowData)).toBe(true);
+    // Detailed validation from the original test - focus on data decoding
+    console.log(state.unusedOptions)
+    expect(state.rowData.length).toEqual(4);
+    expect(state.unusedOptions).toEqual(0);
+    expect(state.preMoney).toEqual(8_000_000);
+    // Should default to 1 if not present in the legacy state
+    expect(state.pricedRounds).toEqual(1);
     
-    // Check for other expected properties
-    expect(decompressedState).toHaveProperty("preMoney");
+    // Validate that we have SAFE rows
+    const safeRows = state.rowData.filter((row: any) => row.type === "Safe");
+    expect(safeRows.length).toEqual(0);
+    
   });
 
   it("should handle invalid legacy hash gracefully", () => {

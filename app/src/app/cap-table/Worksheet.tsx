@@ -20,8 +20,6 @@ import Share from "@/components/safe-conversion/Conversion/Share";
 import { CapTableResults } from "@/components/safe-conversion/Conversion/CapTableResults";
 import { getReadOnlyUrl, getFullAccessUrl, hasEditAccess } from "./state/selectors/ShareURLSelector";
 import { getErrorSelector } from "./state/selectors/ErrorSelector";
-import Finder from "@/components/safe-conversion/Conversion/Finder";
-import { localStorageWorks } from "./state/localstorage";
 import { getCommonOnlyCapTable } from "./state/selectors/CommonOnlyCapTableSelector";
 import { getPreRoundCapTable } from "./state/selectors/PreRoundCapTableSelector";
 import {
@@ -34,8 +32,6 @@ import { CapTableRowType } from "@library/cap-table/types";
 
 type WorksheetProps = {
   conversionState: IConversionState;
-  currentStateId: string;
-  loadById: (id: string) => void;
   createNewState: (findRecent: boolean) => void;
   onClone?: () => void;
   isCloning?: boolean;
@@ -51,8 +47,6 @@ function usePrevious<T>(value: T) {
 
 const Worksheet: React.FC<WorksheetProps> = ({
   conversionState,
-  currentStateId,
-  loadById,
   createNewState,
   onClone,
   isCloning,
@@ -120,9 +114,6 @@ const Worksheet: React.FC<WorksheetProps> = ({
           onClone={onClone}
           isCloning={isCloning}
         />
-        {localStorageWorks && (
-          <Finder currentId={currentStateId} loadById={loadById}></Finder>
-        )}
         <Button
           className="w-28 bg-nt84blue hover:bg-nt84bluedarker text-white dark:text-white cursor-pointer"
           onClick={() => createNewState(false)}

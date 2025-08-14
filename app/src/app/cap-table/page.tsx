@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { FaMoon, FaSun } from "react-icons/fa";
 import { useStore } from "zustand";
 import * as jsondiffpatch from "jsondiffpatch";
 
@@ -10,14 +9,12 @@ import {
   createConversionStore,
 } from "./state/ConversionState";
 import { getRandomData, initialState } from "./state/initialState";
-import { findRecentState, updateRecentStates } from "./state/localstorage";
 import Worksheet from "./Worksheet";
 import { getSerializedSelector } from "./state/selectors/SerializeSelector";
 import { generateBase58UUID } from "@/utils/uuid";
 import { BackendService } from "@/services/backendService";
 
 const Page: React.FC = () => {
-  const [stateId, setStateId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdateReceived, setLastUpdateReceived] = useState<Date | null>(null);
@@ -144,9 +141,7 @@ const Page: React.FC = () => {
           const { id, editKey } = await backendService.createObject(newState);
           const stateWithIds = { ...newState, objectId: id, editKey };
           storeRef.current?.setState(stateWithIds);
-          updateRecentStates(id, stateWithIds);
           window.location.hash = `${id}-${editKey}`;
-          setStateId(`${id}-${editKey}`);
           
           // Connect websocket
           setWsConnectionState('connecting');
@@ -181,9 +176,7 @@ const Page: React.FC = () => {
           const uuid = generateBase58UUID();
           const fallbackState = { ...newState, objectId: uuid };
           storeRef.current?.setState(fallbackState);
-          updateRecentStates(uuid, fallbackState);
           window.location.hash = uuid;
-          setStateId(uuid);
         }
         
       } else if (hash.charAt(0) === "A") {
@@ -193,9 +186,7 @@ const Page: React.FC = () => {
           const { id, editKey, data } = await backendService.convertLegacyHash(hash);
           const stateWithIds = { ...data, objectId: id, editKey };
           storeRef.current?.setState(stateWithIds);
-          updateRecentStates(id, stateWithIds);
           window.location.hash = `${id}-${editKey}`;
-          setStateId(`${id}-${editKey}`);
           
           // Connect websocket
           setWsConnectionState('connecting');
@@ -227,57 +218,13 @@ const Page: React.FC = () => {
           
         } catch (error) {
           console.error("Failed to convert legacy hash:", error);
-          // Fallback to local decompression if backend fails
-          try {
-            console.log("🔄 Falling back to local decompression...");
-            const { decompressState } = await import("@/utils/stateCompression");
-            const legacyState = decompressState(hash);
-            
-            const { id, editKey } = await backendService.createObject(legacyState);
-            const stateWithIds = { ...legacyState, objectId: id, editKey };
-            storeRef.current?.setState(stateWithIds);
-            updateRecentStates(id, stateWithIds);
-            window.location.hash = `${id}-${editKey}`;
-            setStateId(`${id}-${editKey}`);
-            
-            // Connect websocket
-            setWsConnectionState('connecting');
-            wsRef.current = backendService.connectWebSocket(id, (message) => {
-              handleUpdateNotification(message, id, editKey);
-            });
-            setCurrentVersion(1); // Legacy conversion starts at version 1
-            
-            // Add event listeners to track connection state
-            if (wsRef.current) {
-              wsRef.current.addEventListener('open', () => {
-                setWsConnectionState('connected');
-                setWsConnectedAt(new Date());
-                setWsLastError(null);
-              });
-              
-              wsRef.current.addEventListener('close', () => {
-                setWsConnectionState('disconnected');
-                setWsConnectedAt(null);
-              });
-              
-              wsRef.current.addEventListener('error', () => {
-                setWsConnectionState('error');
-                setWsLastError('WebSocket connection error');
-              });
-            }
-            
-            console.log("✅ Successfully converted legacy hash using fallback");
-          } catch (fallbackError) {
-            console.error("Fallback conversion also failed:", fallbackError);
-            // Final fallback to new document
-            const uuid = generateBase58UUID();
-            const newState = initialState({ ...getRandomData() });
-            const fallbackState = { ...newState, objectId: uuid };
-            storeRef.current?.setState(fallbackState);
-            updateRecentStates(uuid, fallbackState);
-            window.location.hash = uuid;
-            setStateId(uuid);
-          }
+          setError("Failed to convert legacy URL. Please try creating a new document.");
+          // Fallback to new document
+          const uuid = generateBase58UUID();
+          const newState = initialState({ ...getRandomData() });
+          const fallbackState = { ...newState, objectId: uuid };
+          storeRef.current?.setState(fallbackState);
+          window.location.hash = uuid;
         }
         
       } else {
@@ -291,7 +238,6 @@ const Page: React.FC = () => {
             const response = await backendService.getObject(objectId);
             const stateData = { ...response.data, objectId, editKey };
             storeRef.current?.setState(stateData);
-            setStateId(hash);
             
             // Connect websocket for real-time updates (read-write)
             setWsConnectionState('connecting');
@@ -326,8 +272,6 @@ const Page: React.FC = () => {
             const newState = initialState({ ...getRandomData() });
             const fallbackState = { ...newState, objectId: hash };
             storeRef.current?.setState(fallbackState);
-            updateRecentStates(hash, fallbackState);
-            setStateId(hash);
           }
         } else {
           // Read-only access: objectId only
@@ -335,7 +279,6 @@ const Page: React.FC = () => {
             const response = await backendService.getObject(hash);
             const stateData = { ...response.data, objectId: hash };
             storeRef.current?.setState(stateData);
-            setStateId(hash);
             
             // Connect websocket for real-time updates (read-only)
             setWsConnectionState('connecting');
@@ -370,8 +313,6 @@ const Page: React.FC = () => {
             const newState = initialState({ ...getRandomData() });
             const fallbackState = { ...newState, objectId: hash };
             storeRef.current?.setState(fallbackState);
-            updateRecentStates(hash, fallbackState);
-            setStateId(hash);
           }
         }
       }
@@ -423,15 +364,6 @@ const Page: React.FC = () => {
   }, [state, isLoading, backendService]);
 
 
-  // Load from local storage (for recent states menu)
-  const loadById = (id: string) => {
-    const state = findRecentState(id);
-    if (state) {
-      setStateId(id);
-      storeRef.current?.setState(state);
-    }
-  };
-
   // Create new state (for "New" button)
   const createNewState = () => {
     window.location.hash = ""; // This will trigger a reload with no hash
@@ -461,9 +393,7 @@ const Page: React.FC = () => {
       
       // Update state and URL
       storeRef.current?.setState(stateWithIds);
-      updateRecentStates(id, stateWithIds);
       window.location.hash = `${id}-${editKey}`;
-      setStateId(`${id}-${editKey}`);
       
       // Connect new websocket for the cloned document
       setWsConnectionState('connecting');
@@ -707,8 +637,6 @@ const Page: React.FC = () => {
         <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
           <Worksheet
             conversionState={state}
-            currentStateId={stateId}
-            loadById={loadById}
             createNewState={createNewState}
             onClone={handleClone}
             isCloning={isCloning}
@@ -725,9 +653,13 @@ const Page: React.FC = () => {
             }
           >
             {darkMode ? (
-              <FaMoon className="mr-0 md:mr-1" />
+              <svg className="w-4 h-4 mr-0 md:mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+              </svg>
             ) : (
-              <FaSun className="mr-0 md:mr-1" />
+              <svg className="w-4 h-4 mr-0 md:mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
+              </svg>
             )}
             <span className="hidden md:inline">
               {darkMode ? "Founder Mode" : "VC Mode"}
