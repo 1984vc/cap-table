@@ -27,6 +27,7 @@ interface SAFETableRowProps {
   onDragStart: (event: React.DragEvent<HTMLTableRowElement>, id: string) => void;
   onDragOver: (event: React.DragEvent<HTMLTableRowElement>, id: string) => void;
   onDrop: (event: React.DragEvent<HTMLTableRowElement>, dropId: string) => void;
+  isReadOnly?: boolean;
 }
 
 const SAFETableRow: React.FC<SAFETableRowProps> = ({
@@ -38,6 +39,7 @@ const SAFETableRow: React.FC<SAFETableRowProps> = ({
   onDragStart,
   onDragOver,
   onDrop,
+  isReadOnly = false,
 }) => {
   const [editingCell, setEditingCell] = useState<{
     field: string;
@@ -54,6 +56,7 @@ const SAFETableRow: React.FC<SAFETableRowProps> = ({
 
   // Start editing a cell
   const startEditing = (field: string) => {
+    if (isReadOnly) return; // Don't allow editing in read-only mode
     if (data.disabledFields?.includes(field)) return;
     
     let initialValue = '';
@@ -220,7 +223,7 @@ const SAFETableRow: React.FC<SAFETableRowProps> = ({
     }
     
     // Display value when not editing
-    const canEdit = !isDisabled;
+    const canEdit = !isReadOnly && !isDisabled;
     let formattedDisplayValue = displayValue;
     
     if (field === 'investment' || field === 'cap') {
@@ -255,17 +258,21 @@ const SAFETableRow: React.FC<SAFETableRowProps> = ({
   return (
     <tr
       className={`${isDragging ? 'opacity-50' : ''} ${isHovered ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
-      draggable={true}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
+      draggable={!isReadOnly}
+      onDragStart={!isReadOnly ? handleDragStart : undefined}
+      onDragOver={!isReadOnly ? handleDragOver : undefined}
+      onDrop={!isReadOnly ? handleDrop : undefined}
     >
       {/* Drag Handle */}
-      <td className="px-2 py-2 w-8 text-center">
-        <button className="text-gray-500 dark:text-gray-400 cursor-move focus:outline-none">
-          <FaBars className="w-3 h-3" />
-        </button>
-      </td>
+      {!isReadOnly ? (
+        <td className="px-2 py-2 w-8 text-center">
+          <button className="text-gray-500 dark:text-gray-400 cursor-move focus:outline-none">
+            <FaBars className="w-3 h-3" />
+          </button>
+        </td>
+      ) : (
+        <td className="px-2 py-2 w-8 text-center"></td>
+      )}
       
       {/* Name */}
       <td className="px-3 py-2 w-2/5 break-words">
@@ -330,6 +337,7 @@ const SafeNoteList: React.FC<RowsProps<SAFEProps>> = ({
   onUpdate,
   onAddRow,
   onMoveRow,
+  isReadOnly = false,
 }) => {
   const [dragStartId, setDragStartId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -384,14 +392,16 @@ const SafeNoteList: React.FC<RowsProps<SAFEProps>> = ({
               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-2/5">
                 <div className="flex items-center justify-between">
                   <span>Safe Holder</span>
-                  <Button
-                    onClick={onAddRow}
-                    variant="ghost"
-                    className="ml-2 p-1 text-blue-500 hover:text-blue-700 h-auto cursor-pointer"
-                    title="Add new SAFE"
-                  >
-                    +
-                  </Button>
+                  {!isReadOnly && (
+                    <Button
+                      onClick={onAddRow}
+                      variant="ghost"
+                      className="ml-2 p-1 text-blue-500 hover:text-blue-700 h-auto cursor-pointer"
+                      title="Add new SAFE"
+                    >
+                      +
+                    </Button>
+                  )}
                 </div>
               </th>
               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-1/6">
@@ -418,7 +428,7 @@ const SafeNoteList: React.FC<RowsProps<SAFEProps>> = ({
             {rows.map((safe, idx) => (
               <SAFETableRow
                 key={safe.id || idx}
-                data={safe}
+                data={{...safe, allowDelete: !isReadOnly && safe.allowDelete}}
                 onUpdate={onUpdate}
                 onDelete={onDelete}
                 isDragging={dragStartId === safe.id}
@@ -426,6 +436,7 @@ const SafeNoteList: React.FC<RowsProps<SAFEProps>> = ({
                 onDragStart={onDragStart}
                 onDragOver={onDragOver}
                 onDrop={onDrop}
+                isReadOnly={isReadOnly}
               />
             ))}
             
@@ -451,14 +462,16 @@ const SafeNoteList: React.FC<RowsProps<SAFEProps>> = ({
       </div>
       
       {/* Add new row button at bottom */}
-      <div className="flex justify-center mt-4">
-        <Button
-          onClick={onAddRow}
-          className="bg-nt84blue hover:bg-nt84bluedarker dark:text-white cursor-pointer"
-        >
-          + Add another SAFE
-        </Button>
-      </div>
+      {!isReadOnly && (
+        <div className="flex justify-center mt-4">
+          <Button
+            onClick={onAddRow}
+            className="bg-nt84blue hover:bg-nt84bluedarker dark:text-white cursor-pointer"
+          >
+            + Add another SAFE
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

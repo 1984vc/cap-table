@@ -64,6 +64,8 @@ const Worksheet: React.FC<WorksheetProps> = ({
     togglepriceRounds,
   } = conversionState;
 
+  const isReadOnly = !hasEditAccess(conversionState);
+
   const totalSeriesInvesment = (
     rowData.filter((row) => row.type === "series") as SeriesState[]
   )
@@ -114,12 +116,14 @@ const Worksheet: React.FC<WorksheetProps> = ({
           onClone={onClone}
           isCloning={isCloning}
         />
-        <Button
-          className="w-28 bg-nt84blue hover:bg-nt84bluedarker text-white dark:text-white cursor-pointer"
-          onClick={() => createNewState(false)}
-        >
-          Create New
-        </Button>
+        {!isReadOnly && (
+          <Button
+            className="w-28 bg-nt84blue hover:bg-nt84bluedarker text-white dark:text-white cursor-pointer"
+            onClick={() => createNewState(false)}
+          >
+            Create New
+          </Button>
+        )}
       </div>
       <h1 className="text-2xl font-bold mb-12 pl-2">1&#41;  Existing Cap Table</h1>
       <div>
@@ -134,6 +138,7 @@ const Worksheet: React.FC<WorksheetProps> = ({
               onUpdateRow(data);
             }
           }}
+          isReadOnly={isReadOnly}
         />
       </div>
       <h1 className="text-2xl font-bold mb-12 mt-24 pl-2">2&#41; SAFE Investors</h1>
@@ -144,6 +149,7 @@ const Worksheet: React.FC<WorksheetProps> = ({
           onDelete={onDeleteRow}
           onUpdate={onUpdateRow}
           onMoveRow={onMoveRow}
+          isReadOnly={isReadOnly}
         />
       </div>
 
@@ -171,23 +177,25 @@ const Worksheet: React.FC<WorksheetProps> = ({
         />
       </div>
 
-      <div className="mt-12">
-        {hasPricedRound ? (
-          <Button
-            onClick={togglepriceRounds}
-            className="w-full bg-nt84blue hover:bg-nt84bluedarker text-white dark:text-white cursor-pointer"
-          >
-            Remove Priced Round
-          </Button>
-        ) : (
-          <Button
-            onClick={togglepriceRounds}
-            className="w-full bg-nt84blue hover:bg-nt84bluedarker text-white dark:text-white cursor-pointer"
-          >
-            Add Priced Round
-          </Button>
-        )}
-      </div>
+      {!isReadOnly && (
+        <div className="mt-12">
+          {hasPricedRound ? (
+            <Button
+              onClick={togglepriceRounds}
+              className="w-full bg-nt84blue hover:bg-nt84bluedarker text-white dark:text-white cursor-pointer"
+            >
+              Remove Priced Round
+            </Button>
+          ) : (
+            <Button
+              onClick={togglepriceRounds}
+              className="w-full bg-nt84blue hover:bg-nt84bluedarker text-white dark:text-white cursor-pointer"
+            >
+              Add Priced Round
+            </Button>
+          )}
+        </div>
+      )}
 
       {hasPricedRound && (
         <div>
@@ -199,49 +207,67 @@ const Worksheet: React.FC<WorksheetProps> = ({
               <div className="flex flex-wrap gap-4">
                 <div className="w-full sm:w-1/5 md:w-1/5 lg:w-1/5">
                   <h2 className="my-2 not-prose">Premoney Valuation</h2>
-                  <CurrencyInput
-                    type="text"
-                    name="preMoney"
-                    value={preMoney}
-                    onValueChange={onValueChange("number")}
-                    placeholder="Investment"
-                    className="flex-1 w-full"
-                    prefix="$"
-                    decimalScale={0}
-                    allowDecimals={false}
-                    customInput={Input}
-                  />
+                  {isReadOnly ? (
+                    <div className="px-3 py-2 bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded flex-1 w-full">
+                      ${formatNumberWithCommas(stringToNumber(preMoney))}
+                    </div>
+                  ) : (
+                    <CurrencyInput
+                      type="text"
+                      name="preMoney"
+                      value={preMoney}
+                      onValueChange={onValueChange("number")}
+                      placeholder="Investment"
+                      className="flex-1 w-full"
+                      prefix="$"
+                      decimalScale={0}
+                      allowDecimals={false}
+                      customInput={Input}
+                    />
+                  )}
                 </div>
                 <div className="w-full sm:w-1/5 md:w-1/5 lg:w-1/5">
                   <h2 className="my-2 not-prose">Post Money Valuation</h2>
-                  <CurrencyInput
-                    type="text"
-                    name="totalSeriesInvestment"
-                    value={postMoney}
-                    onValueChange={onPostMoneyChange}
-                    className="flex-1 w-full"
-                    prefix="$"
-                    decimalScale={0}
-                    allowDecimals={false}
-                    customInput={Input}
-                  />
+                  {isReadOnly ? (
+                    <div className="px-3 py-2 bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded flex-1 w-full">
+                      ${formatNumberWithCommas(postMoney)}
+                    </div>
+                  ) : (
+                    <CurrencyInput
+                      type="text"
+                      name="totalSeriesInvestment"
+                      value={postMoney}
+                      onValueChange={onPostMoneyChange}
+                      className="flex-1 w-full"
+                      prefix="$"
+                      decimalScale={0}
+                      allowDecimals={false}
+                      customInput={Input}
+                    />
+                  )}
                 </div>
                 <div className="w-full sm:w-1/5 md:w-1/5 lg:w-1/5">
                   <h2 className="my-2 not-prose">Target Options Pool</h2>
-                  <CurrencyInput
-                    type="text"
-                    name="targetOptionsPool"
-                    value={targetOptionsPool}
-                    onValueChange={onValueChange("percent")}
-                    placeholder="Target Options Pool %"
-                    className="flex-1 w-full"
-                    prefix=""
-                    suffix="%"
-                    decimalScale={1}
-                    max={99}
-                    allowDecimals={true}
-                    customInput={Input}
-                  />
+                  {isReadOnly ? (
+                    <div className="px-3 py-2 bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded flex-1 w-full">
+                      {targetOptionsPool}%
+                    </div>
+                  ) : (
+                    <CurrencyInput
+                      type="text"
+                      name="targetOptionsPool"
+                      value={targetOptionsPool}
+                      onValueChange={onValueChange("percent")}
+                      placeholder="Target Options Pool %"
+                      className="flex-1 w-full"
+                      prefix=""
+                      suffix="%"
+                      decimalScale={1}
+                      max={99}
+                      allowDecimals={true}
+                      customInput={Input}
+                    />
+                  )}
                 </div>
                 <div className="w-full sm:w-1/5 md:w-1/5 lg:w-1/5">
                   <div className="text-gray-500 dark:text-gray-400 mb-1 my-2">
@@ -260,6 +286,7 @@ const Worksheet: React.FC<WorksheetProps> = ({
                 onAddRow={() => onAddRow(CapTableRowType.Series)}
                 onDelete={onDeleteRow}
                 onUpdate={onUpdateRow}
+                isReadOnly={isReadOnly}
               />
             </div>
           </div>

@@ -1,5 +1,5 @@
 import { copyTextToClipboard } from "@/utils/clipboard";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { FaBookmark, FaRegBookmark, FaLock, FaLockOpen, FaCopy, FaClone } from "react-icons/fa6";
 
@@ -72,6 +72,26 @@ const Share: React.FC<ShareProps> = ({
     }
   };
 
+  // Handle ESC key to close modal
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && showModal) {
+        setShowModal(false);
+      }
+    };
+
+    if (showModal) {
+      document.addEventListener('keydown', handleEscKey);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+      document.body.style.overflow = 'unset';
+    };
+  }, [showModal]);
+
   return (
     <div className="">
       <Button
@@ -85,13 +105,14 @@ const Share: React.FC<ShareProps> = ({
         {buttonText()}
       </Button>
       {showModal && (
-        <div className="fixed z-50 inset-0 flex items-center justify-center overflow-hidden">
-          <div className="fixed inset-0 transition-opacity">
-            <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-          </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden">
+          <div 
+            className="fixed inset-0 bg-gray-500 opacity-75 transition-opacity"
+            onClick={() => setShowModal(false)}
+          ></div>
 
-          <div className="text-left overflow-hidden shadow-xl transform transition-all sm:max-w-2xl sm:w-full mx-4">
-            <div className="bg-white dark:bg-gray-900 px-6 pt-6 pb-4">
+          <div className="relative z-10 bg-white dark:bg-gray-900 text-left overflow-hidden shadow-xl transform transition-all sm:max-w-2xl sm:w-full mx-4 rounded-lg">
+            <div className="px-6 pt-6 pb-4">
               <h3 className="text-xl leading-6 font-medium text-gray-900 dark:text-gray-100 mb-6">
                 Share this worksheet
               </h3>

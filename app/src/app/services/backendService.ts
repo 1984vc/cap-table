@@ -53,6 +53,8 @@ interface WebSocketConnection {
   heartbeatInterval?: number;
   lastPongReceived: number;
   shouldReconnect: boolean;
+  isIdle: boolean;
+  lastActivity: number;
 }
 
 export class BackendService {
@@ -62,12 +64,65 @@ export class BackendService {
   private readonly HEARTBEAT_TIMEOUT = 10000; // 10 seconds
   private readonly MAX_RECONNECT_ATTEMPTS = 10;
   private readonly INITIAL_RECONNECT_DELAY = 1000; // 1 second
+  private readonly IDLE_TIMEOUT = 300000; // 5 minutes of inactivity before going idle
+  private readonly IDLE_DISCONNECT_TIMEOUT = 600000; // 10 minutes idle before disconnect
 
   static getInstance(): BackendService {
     if (!BackendService.instance) {
       BackendService.instance = new BackendService();
     }
     return BackendService.instance;
+  }
+
+  // Mark connection as active (called on user interaction or data changes)
+  markConnectionActive(id: string): void {
+    const connection = this.websockets.get(id);
+    if (connection) {
+      connection.lastActivity = Date.now();
+      if (connection.isIdle) {
+        console.log(`🔄 Connection ${id} becoming active, attempting reconnect if needed`);
+        connection.isIdle = false;
+        
+        // If connection is closed, reconnect
+        if (connection.ws.readyState === WebSocket.CLOSED) {
+          this.reconnectFromIdle(id, connection);
+        }
+      }
+    }
+  }
+
+  // Check if connection should go idle and disconnect if needed
+  private checkIdleState(id: string, connection: WebSocketConnection): void {
+    const now = Date.now();
+    const timeSinceActivity = now - connection.lastActivity;
+    
+    if (!connection.isIdle && timeSinceActivity > this.IDLE_TIMEOUT) {
+      console.log(`😴 Connection ${id} going idle after ${timeSinceActivity}ms of inactivity`);
+      connection.isIdle = true;
+    }
+    
+    if (connection.isIdle && timeSinceActivity > this.IDLE_DISCONNECT_TIMEOUT) {
+      console.log(`💤 Disconnecting idle connection ${id} after ${timeSinceActivity}ms of inactivity`);
+      connection.shouldReconnect = false; // Don't auto-reconnect idle connections
+      connection.ws.close(1000, 'Idle timeout');
+    }
+  }
+
+  // Reconnect from idle state
+  private reconnectFromIdle(id: string, connection: WebSocketConnection): void {
+    if (connection.isReconnecting) {
+      return; // Already reconnecting
+    }
+
+    console.log(`🔄 Reconnecting from idle state for ${id}`);
+    connection.isReconnecting = true;
+    connection.shouldReconnect = true;
+    connection.reconnectAttempts = 0; // Reset attempts for idle reconnection
+    connection.reconnectDelay = this.INITIAL_RECONNECT_DELAY;
+
+    // Create new WebSocket
+    connection.ws = new WebSocket(connection.url);
+    this.setupWebSocketHandlers(id, connection);
   }
 
   async createObject(data: IConversionStateData): Promise<{ id: string; editKey: string }> {
@@ -149,7 +204,9 @@ export class BackendService {
       reconnectDelay: this.INITIAL_RECONNECT_DELAY,
       isReconnecting: false,
       lastPongReceived: Date.now(),
-      shouldReconnect: true
+      shouldReconnect: true,
+      isIdle: false,
+      lastActivity: Date.now()
     };
 
     this.setupWebSocketHandlers(id, connection);
@@ -259,6 +316,9 @@ export class BackendService {
     this.stopHeartbeat(connection);
 
     connection.heartbeatInterval = window.setInterval(() => {
+      // Check idle state first
+      this.checkIdleState(id, connection);
+      
       if (connection.ws.readyState === WebSocket.OPEN) {
         // Check if we received a pong recently
         const timeSinceLastPong = Date.now() - connection.lastPongReceived;
@@ -268,12 +328,14 @@ export class BackendService {
           return;
         }
 
-        // Send ping
-        try {
-          connection.ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
-          console.log(`💓 Heartbeat ping sent for ${id}`);
-        } catch (error) {
-          console.error(`❌ Failed to send heartbeat ping for ${id}:`, error);
+        // Only send ping if not idle
+        if (!connection.isIdle) {
+          try {
+            connection.ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
+            console.log(`💓 Heartbeat ping sent for ${id}`);
+          } catch (error) {
+            console.error(`❌ Failed to send heartbeat ping for ${id}:`, error);
+          }
         }
       }
     }, this.HEARTBEAT_INTERVAL);

@@ -4,4 +4,5 @@ export interface RowsProps<T> {
   onAddRow: () => void;
   onUpdate: (data: T) => void;
   onMoveRow?: (dragStart: string, dropIndex: string) => void;
+  isReadOnly?: boolean;
 }

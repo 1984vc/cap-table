@@ -18,6 +18,7 @@ interface ExistingShareholderRowProps {
   onUpdate: (data: ExistingShareholderProps) => void;
   allowDelete?: boolean;
   disableNameEdit?: boolean;
+  isReadOnly?: boolean;
 }
 
 const ExistingShareholderTableRow: React.FC<ExistingShareholderRowProps> = ({
@@ -26,6 +27,7 @@ const ExistingShareholderTableRow: React.FC<ExistingShareholderRowProps> = ({
   onUpdate,
   allowDelete,
   disableNameEdit,
+  isReadOnly = false,
 }) => {
   const [editingCell, setEditingCell] = useState<{
     field: string;
@@ -72,6 +74,7 @@ const ExistingShareholderTableRow: React.FC<ExistingShareholderRowProps> = ({
 
   // Start editing a cell
   const startEditing = (field: string) => {
+    if (isReadOnly) return; // Don't allow editing in read-only mode
     if (field === 'name' && disableNameEdit) return;
     if (field === 'ownershipPct') return; // Ownership % is not editable
     
@@ -166,7 +169,7 @@ const ExistingShareholderTableRow: React.FC<ExistingShareholderRowProps> = ({
     }
     
     // Display value when not editing
-    const canEdit = !(field === 'name' && disableNameEdit) && field !== 'ownershipPct';
+    const canEdit = !isReadOnly && !(field === 'name' && disableNameEdit) && field !== 'ownershipPct';
     
     return (
       <div
@@ -234,6 +237,7 @@ const ExisingShareholderList: React.FC<RowsProps<ExistingShareholderProps>> = ({
   onDelete,
   onUpdate,
   onAddRow,
+  isReadOnly = false,
 }) => {
   // Don't include the UnusedOptionsRow in the editable list since this is edited in a separate field
   const existingShareholders = rows.filter(
@@ -263,14 +267,16 @@ const ExisingShareholderList: React.FC<RowsProps<ExistingShareholderProps>> = ({
               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-2/5">
                 <div className="flex items-center justify-between">
                   <span>Shareholder</span>
-                  <Button
-                    onClick={onAddRow}
-                    variant="ghost"
-                    className="ml-2 p-1 text-blue-500 hover:text-blue-700 h-auto"
-                    title="Add new shareholder"
-                  >
-                    +
-                  </Button>
+                  {!isReadOnly && (
+                    <Button
+                      onClick={onAddRow}
+                      variant="ghost"
+                      className="ml-2 p-1 text-blue-500 hover:text-blue-700 h-auto"
+                      title="Add new shareholder"
+                    >
+                      +
+                    </Button>
+                  )}
                 </div>
               </th>
               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-1/4">
@@ -291,8 +297,9 @@ const ExisingShareholderList: React.FC<RowsProps<ExistingShareholderProps>> = ({
                 data={shareholder}
                 onUpdate={onUpdate}
                 onDelete={onDelete}
-                allowDelete={existingShareholders.length > 1 && existingShareholders.includes(shareholder)}
+                allowDelete={!isReadOnly && existingShareholders.length > 1 && existingShareholders.includes(shareholder)}
                 disableNameEdit={["UnusedOptionsPool", "IssuedOptions"].includes(shareholder.id)}
+                isReadOnly={isReadOnly}
               />
             ))}
             
@@ -314,14 +321,16 @@ const ExisingShareholderList: React.FC<RowsProps<ExistingShareholderProps>> = ({
       </div>
       
       {/* Add new row button at bottom */}
-      <div className="flex justify-center mt-4">
-        <Button
-          onClick={onAddRow}
-          className="bg-nt84blue hover:bg-nt84bluedarker dark:text-white"
-        >
-          + Add another Shareholder
-        </Button>
-      </div>
+      {!isReadOnly && (
+        <div className="flex justify-center mt-4">
+          <Button
+            onClick={onAddRow}
+            className="bg-nt84blue hover:bg-nt84bluedarker dark:text-white"
+          >
+            + Add another Shareholder
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

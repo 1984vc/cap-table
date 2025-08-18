@@ -173,11 +173,12 @@ const Page: React.FC = () => {
         } catch (error) {
           console.error("Failed to create new document:", error);
           setError("Failed to create new document");
-          // Fallback to local state
+          // Fallback to local state with both objectId and editKey for full editing capability
           const uuid = generateBase58UUID();
-          const fallbackState = { ...newState, objectId: uuid };
+          const editKey = generateBase58UUID();
+          const fallbackState = { ...newState, objectId: uuid, editKey };
           storeRef.current?.setState(fallbackState);
-          window.location.hash = uuid;
+          window.location.hash = `${uuid}-${editKey}`;
         }
         
       } else if (hash.charAt(0) === "A") {
@@ -345,6 +346,9 @@ const Page: React.FC = () => {
     }
     
     if (!isLoading && state.objectId && state.editKey) {
+      // Mark connection as active when user makes changes
+      backendService.markConnectionActive(state.objectId);
+      
       const timeoutId = setTimeout(async () => {
         try {
           setIsSaving(true);
@@ -363,6 +367,28 @@ const Page: React.FC = () => {
       return () => clearTimeout(timeoutId);
     }
   }, [state, isLoading, backendService]);
+
+  // Track user activity for WebSocket connection management
+  useEffect(() => {
+    if (!state.objectId) return;
+
+    const markActive = () => {
+      backendService.markConnectionActive(state.objectId!);
+    };
+
+    // Track various user interactions
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    
+    events.forEach(event => {
+      document.addEventListener(event, markActive, { passive: true });
+    });
+
+    return () => {
+      events.forEach(event => {
+        document.removeEventListener(event, markActive);
+      });
+    };
+  }, [state.objectId, backendService]);
 
 
   // Create new state (for "New" button)
