@@ -73,12 +73,51 @@ function validateBase58(str: string): boolean {
 export class WorksheetCoordinatorDurableObject implements DurableObject {
 	private state: DurableObjectState;
 	private env: Env;
-	private sessions: Set<WebSocket>;
+	private sessions: Map<WebSocket, { lastPing: number; isAlive: boolean }>;
+	private cleanupInterval?: number;
 
 	constructor(state: DurableObjectState, env: Env) {
 		this.state = state;
 		this.env = env;
-		this.sessions = new Set();
+		this.sessions = new Map();
+		
+		// Start periodic cleanup of dead connections
+		this.startCleanupInterval();
+	}
+
+	private startCleanupInterval(): void {
+		// Clean up dead connections every 60 seconds
+		this.cleanupInterval = setInterval(() => {
+			this.cleanupDeadConnections();
+		}, 60000) as any;
+	}
+
+	private cleanupDeadConnections(): void {
+		const now = Date.now();
+		const deadConnections: WebSocket[] = [];
+		
+		this.sessions.forEach((sessionInfo, ws) => {
+			// Consider connection dead if no ping received in last 2 minutes
+			if (now - sessionInfo.lastPing > 120000 || ws.readyState !== WebSocket.OPEN) {
+				deadConnections.push(ws);
+			}
+		});
+
+		deadConnections.forEach(ws => {
+			console.log(`🧹 Cleaning up dead WebSocket connection`);
+			this.sessions.delete(ws);
+			try {
+				if (ws.readyState === WebSocket.OPEN) {
+					ws.close(1000, 'Connection cleanup');
+				}
+			} catch (error) {
+				console.error('Error closing dead connection:', error);
+			}
+		});
+
+		if (deadConnections.length > 0) {
+			console.log(`🧹 Cleaned up ${deadConnections.length} dead connections. Active sessions: ${this.sessions.size}`);
+		}
 	}
 
 	async fetch(request: Request): Promise<Response> {
@@ -90,8 +129,14 @@ export class WorksheetCoordinatorDurableObject implements DurableObject {
 			const [client, server] = Object.values(webSocketPair);
 
 			this.state.acceptWebSocket(server);
-			this.sessions.add(server);
-			console.log(`🔗 WebSocket connected. Total sessions: ${this.sessions.size}`);
+			this.sessions.set(server, { lastPing: Date.now(), isAlive: true });
+			
+			console.group(`🔗 WebSocket Connection Established`);
+			console.log(`🕐 Connected at:`, new Date().toISOString());
+			console.log(`🌐 Request URL:`, request.url);
+			console.log(`📊 Total active sessions:`, this.sessions.size);
+			console.log(`🔗 WebSocket pair created successfully`);
+			console.groupEnd();
 
 			return new Response(null, {
 				status: 101,
@@ -102,8 +147,26 @@ export class WorksheetCoordinatorDurableObject implements DurableObject {
 		// Handle broadcast messages from the main worker
 		if (request.method === "POST" && url.pathname === "/broadcast") {
 			const message = await request.text();
-			console.log(`🔊 Durable Object received broadcast message:`, message);
-			console.log(`👥 Broadcasting to ${this.sessions.size} connected clients`);
+			
+			console.group(`🔊 Durable Object Broadcast`);
+			console.log(`🕐 Broadcast at:`, new Date().toISOString());
+			console.log(`📄 Raw message:`, message);
+			console.log(`📊 Message size:`, message.length, 'bytes');
+			console.log(`👥 Active sessions:`, this.sessions.size);
+			
+			try {
+				const parsedMessage = JSON.parse(message);
+				console.log(`📥 Parsed message:`, parsedMessage);
+				console.log(`🏷️ Message type:`, parsedMessage.type);
+				if (parsedMessage.worksheetId) {
+					console.log(`📋 Worksheet ID:`, parsedMessage.worksheetId);
+				}
+			} catch (e) {
+				console.log(`⚠️ Message is not JSON, broadcasting as-is`);
+			}
+			
+			console.groupEnd();
+			
 			this.broadcast(message);
 			return new Response("OK");
 		}
@@ -112,6 +175,51 @@ export class WorksheetCoordinatorDurableObject implements DurableObject {
 	}
 
 	async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+		console.group(`📨 Durable Object WebSocket Message Received`);
+		console.log(`🕐 Timestamp:`, new Date().toISOString());
+		console.log(`📄 Raw message:`, message);
+		console.log(`📊 Message size:`, typeof message === 'string' ? message.length : message.byteLength, 'bytes');
+		console.log(`👥 Active sessions:`, this.sessions.size);
+		console.log(`🔗 WebSocket state:`, ws.readyState);
+		
+		try {
+			if (typeof message === 'string') {
+				const parsedMessage = JSON.parse(message);
+				console.log(`📥 Parsed message:`, parsedMessage);
+				console.log(`🏷️ Message type:`, parsedMessage.type);
+				
+				// Handle ping/pong for heartbeat
+				if (parsedMessage.type === 'ping') {
+					// Update last ping time for this session
+					const sessionInfo = this.sessions.get(ws);
+					if (sessionInfo) {
+						sessionInfo.lastPing = Date.now();
+						sessionInfo.isAlive = true;
+					}
+					
+					// Send pong response
+					const pongResponse = JSON.stringify({
+						type: 'pong',
+						timestamp: Date.now()
+					});
+					
+					try {
+						ws.send(pongResponse);
+						console.log(`💓 Sent pong response to client`);
+					} catch (error) {
+						console.error(`❌ Failed to send pong response:`, error);
+					}
+					console.groupEnd();
+					return;
+				}
+			} else {
+				console.log(`📦 Binary message received`);
+			}
+		} catch (e) {
+			console.log(`⚠️ Message is not JSON, processing as-is`);
+		}
+		console.groupEnd();
+
 		// Echo messages to all connected clients
 		const response = JSON.stringify({
 			type: "message",
@@ -120,21 +228,39 @@ export class WorksheetCoordinatorDurableObject implements DurableObject {
 			timestamp: new Date().toISOString()
 		});
 
+		console.log(`🔊 Broadcasting message to ${this.sessions.size} clients`);
 		this.broadcast(response);
 	}
 
 	async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean): Promise<void> {
+		console.group(`🔌 Durable Object WebSocket Closed`);
+		console.log(`🕐 Closed at:`, new Date().toISOString());
+		console.log(`🔢 Close code:`, code);
+		console.log(`📝 Close reason:`, reason || 'No reason provided');
+		console.log(`✅ Clean close:`, wasClean);
+		console.log(`👥 Sessions before removal:`, this.sessions.size);
+		console.groupEnd();
+		
 		this.sessions.delete(ws);
+		console.log(`👥 Sessions after removal:`, this.sessions.size);
 	}
 
 	async webSocketError(ws: WebSocket, error: unknown): Promise<void> {
+		console.group(`❌ Durable Object WebSocket Error`);
+		console.log(`🕐 Error at:`, new Date().toISOString());
+		console.log(`🔗 WebSocket state:`, ws.readyState);
+		console.error(`💥 Error:`, error);
+		console.log(`👥 Sessions before removal:`, this.sessions.size);
+		console.groupEnd();
+		
 		this.sessions.delete(ws);
+		console.log(`👥 Sessions after removal:`, this.sessions.size);
 	}
 
 	private broadcast(message: string): void {
-		this.sessions.forEach((ws) => {
+		this.sessions.forEach((sessionInfo, ws) => {
 			try {
-				if (ws.readyState === WebSocket.READY_STATE_OPEN) {
+				if (ws.readyState === WebSocket.OPEN) {
 					ws.send(message);
 				}
 			} catch (error) {

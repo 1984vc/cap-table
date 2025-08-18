@@ -42,9 +42,26 @@ export interface BackendResponse {
   lastModified: string;
 }
 
+interface WebSocketConnection {
+  ws: WebSocket;
+  url: string;
+  onMessage: (message: any) => void;
+  reconnectAttempts: number;
+  maxReconnectAttempts: number;
+  reconnectDelay: number;
+  isReconnecting: boolean;
+  heartbeatInterval?: number;
+  lastPongReceived: number;
+  shouldReconnect: boolean;
+}
+
 export class BackendService {
   private static instance: BackendService;
-  private websockets: Map<string, WebSocket> = new Map();
+  private websockets: Map<string, WebSocketConnection> = new Map();
+  private readonly HEARTBEAT_INTERVAL = 30000; // 30 seconds
+  private readonly HEARTBEAT_TIMEOUT = 10000; // 10 seconds
+  private readonly MAX_RECONNECT_ATTEMPTS = 10;
+  private readonly INITIAL_RECONNECT_DELAY = 1000; // 1 second
 
   static getInstance(): BackendService {
     if (!BackendService.instance) {
@@ -109,61 +126,215 @@ export class BackendService {
   }
 
   connectWebSocket(id: string, onMessage: (message: any) => void): WebSocket {
+    // Check if we already have a connection for this ID
     if (this.websockets.has(id)) {
-      const existingWs = this.websockets.get(id);
-      if (existingWs?.readyState === WebSocket.OPEN || existingWs?.readyState === WebSocket.CONNECTING) {
+      const existingConnection = this.websockets.get(id)!;
+      if (existingConnection.ws.readyState === WebSocket.OPEN || existingConnection.ws.readyState === WebSocket.CONNECTING) {
         console.log(`♻️ Reusing existing WebSocket for ${id}`);
-        return existingWs;
+        return existingConnection.ws;
       }
-      existingWs?.close();
-      this.websockets.delete(id);
+      // Clean up existing connection
+      this.cleanupConnection(id);
     }
 
     const wsUrl = `${BACKEND_URL.replace('https://', 'wss://').replace('http://', 'ws://')}/api/objects/${id}/ws`;
-    console.log(`🔗 Connecting WebSocket for worksheet ${id} to:`, wsUrl);
-    const ws = new WebSocket(wsUrl);
     
+    // Create connection object
+    const connection: WebSocketConnection = {
+      ws: new WebSocket(wsUrl),
+      url: wsUrl,
+      onMessage,
+      reconnectAttempts: 0,
+      maxReconnectAttempts: this.MAX_RECONNECT_ATTEMPTS,
+      reconnectDelay: this.INITIAL_RECONNECT_DELAY,
+      isReconnecting: false,
+      lastPongReceived: Date.now(),
+      shouldReconnect: true
+    };
+
+    this.setupWebSocketHandlers(id, connection);
+    this.websockets.set(id, connection);
+    
+    console.log(`🔗 Connecting WebSocket for worksheet ${id} to:`, wsUrl);
+    return connection.ws;
+  }
+
+  private setupWebSocketHandlers(id: string, connection: WebSocketConnection): void {
+    const { ws, onMessage } = connection;
+
+    ws.onopen = (event) => {
+      console.group(`🔗 WebSocket Connected for ${id}`);
+      console.log(`🕐 Connected at:`, new Date().toISOString());
+      console.log(`🌐 URL:`, connection.url);
+      console.log(`🔗 Ready state:`, ws.readyState);
+      console.log(`📡 Protocol:`, ws.protocol);
+      console.groupEnd();
+
+      // Reset reconnection state on successful connection
+      connection.reconnectAttempts = 0;
+      connection.reconnectDelay = this.INITIAL_RECONNECT_DELAY;
+      connection.isReconnecting = false;
+      connection.lastPongReceived = Date.now();
+
+      // Start heartbeat
+      this.startHeartbeat(id, connection);
+    };
+
     ws.onmessage = (event) => {
       try {
-        console.log(`📨 Raw WebSocket message received for ${id}:`, event.data);
+        console.group(`📨 WebSocket Message Received for ${id}`);
+        console.log(`🕐 Timestamp:`, new Date().toISOString());
+        console.log(`📄 Raw message:`, event.data);
+        console.log(`📊 Message size:`, event.data.length, 'bytes');
+        console.log(`🔗 WebSocket state:`, ws.readyState);
+        
         const data = JSON.parse(event.data);
-        console.log(`📥 Parsed WebSocket message for ${id}:`, data);
+        console.log(`📥 Parsed message:`, data);
+        console.log(`🏷️ Message type:`, data.type);
+        
+        // Handle pong messages for heartbeat
+        if (data.type === 'pong') {
+          connection.lastPongReceived = Date.now();
+          console.log(`💓 Heartbeat pong received`);
+          console.groupEnd();
+          return;
+        }
+        
+        if (data.worksheetId) {
+          console.log(`📋 Worksheet ID:`, data.worksheetId);
+        }
+        if (data.version) {
+          console.log(`🔢 Version:`, data.version);
+        }
+        if (data.lastModified) {
+          console.log(`⏰ Last modified:`, data.lastModified);
+        }
+        
+        console.groupEnd();
         onMessage(data);
       } catch (error) {
-        console.error("❌ Failed to parse websocket message:", error);
+        console.group(`❌ WebSocket Message Parse Error for ${id}`);
+        console.error("Raw message:", event.data);
+        console.error("Parse error:", error);
+        console.groupEnd();
       }
     };
 
-    ws.onopen = () => {
-      console.log(`🔗 WebSocket connected for worksheet ${id}`);
-    };
-
     ws.onclose = (event) => {
-      console.log(`🔌 WebSocket disconnected for ${id}`, { code: event.code, reason: event.reason });
-      this.websockets.delete(id);
+      console.group(`🔌 WebSocket Disconnected for ${id}`);
+      console.log(`🕐 Disconnected at:`, new Date().toISOString());
+      console.log(`🔢 Close code:`, event.code);
+      console.log(`📝 Close reason:`, event.reason || 'No reason provided');
+      console.log(`✅ Clean close:`, event.wasClean);
+      console.log(`🔄 Should reconnect:`, connection.shouldReconnect);
+      console.log(`🔢 Reconnect attempts:`, connection.reconnectAttempts);
+      console.groupEnd();
+
+      // Clear heartbeat
+      this.stopHeartbeat(connection);
+
+      // Attempt reconnection if needed
+      if (connection.shouldReconnect && connection.reconnectAttempts < connection.maxReconnectAttempts) {
+        this.scheduleReconnect(id, connection);
+      } else {
+        console.log(`❌ Max reconnection attempts reached for ${id}, giving up`);
+        this.websockets.delete(id);
+      }
     };
 
     ws.onerror = (error) => {
       // Only log errors that aren't caused by immediate close (React StrictMode)
       if (ws.readyState !== WebSocket.CLOSED) {
-        console.error(`❌ WebSocket error for ${id}:`, error);
+        console.group(`❌ WebSocket Error for ${id}`);
+        console.log(`🕐 Error at:`, new Date().toISOString());
+        console.log(`🔗 Ready state:`, ws.readyState);
+        console.error(`💥 Error:`, error);
+        console.groupEnd();
       }
     };
-
-    this.websockets.set(id, ws);
-    return ws;
   }
 
-  disconnectWebSocket(id: string): void {
-    const ws = this.websockets.get(id);
-    if (ws) {
-      ws.close();
+  private startHeartbeat(id: string, connection: WebSocketConnection): void {
+    // Clear any existing heartbeat
+    this.stopHeartbeat(connection);
+
+    connection.heartbeatInterval = window.setInterval(() => {
+      if (connection.ws.readyState === WebSocket.OPEN) {
+        // Check if we received a pong recently
+        const timeSinceLastPong = Date.now() - connection.lastPongReceived;
+        if (timeSinceLastPong > this.HEARTBEAT_TIMEOUT) {
+          console.log(`💔 Heartbeat timeout for ${id}, closing connection`);
+          connection.ws.close(1000, 'Heartbeat timeout');
+          return;
+        }
+
+        // Send ping
+        try {
+          connection.ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
+          console.log(`💓 Heartbeat ping sent for ${id}`);
+        } catch (error) {
+          console.error(`❌ Failed to send heartbeat ping for ${id}:`, error);
+        }
+      }
+    }, this.HEARTBEAT_INTERVAL);
+  }
+
+  private stopHeartbeat(connection: WebSocketConnection): void {
+    if (connection.heartbeatInterval) {
+      clearInterval(connection.heartbeatInterval);
+      connection.heartbeatInterval = undefined;
+    }
+  }
+
+  private scheduleReconnect(id: string, connection: WebSocketConnection): void {
+    if (connection.isReconnecting) {
+      return; // Already reconnecting
+    }
+
+    connection.isReconnecting = true;
+    connection.reconnectAttempts++;
+
+    console.log(`🔄 Scheduling reconnect for ${id} (attempt ${connection.reconnectAttempts}/${connection.maxReconnectAttempts}) in ${connection.reconnectDelay}ms`);
+
+    setTimeout(() => {
+      if (!connection.shouldReconnect || !this.websockets.has(id)) {
+        return; // Connection was manually closed or removed
+      }
+
+      console.log(`🔄 Attempting to reconnect ${id}...`);
+      
+      // Create new WebSocket with same URL
+      connection.ws = new WebSocket(connection.url);
+      this.setupWebSocketHandlers(id, connection);
+      
+      // Exponential backoff with jitter
+      connection.reconnectDelay = Math.min(
+        connection.reconnectDelay * 2 + Math.random() * 1000,
+        30000 // Max 30 seconds
+      );
+    }, connection.reconnectDelay);
+  }
+
+  private cleanupConnection(id: string): void {
+    const connection = this.websockets.get(id);
+    if (connection) {
+      connection.shouldReconnect = false;
+      this.stopHeartbeat(connection);
+      if (connection.ws.readyState === WebSocket.OPEN || connection.ws.readyState === WebSocket.CONNECTING) {
+        connection.ws.close(1000, 'Manual cleanup');
+      }
       this.websockets.delete(id);
     }
   }
 
+  disconnectWebSocket(id: string): void {
+    this.cleanupConnection(id);
+  }
+
   disconnectAll(): void {
-    this.websockets.forEach((ws) => ws.close());
+    this.websockets.forEach((connection, id) => {
+      this.cleanupConnection(id);
+    });
     this.websockets.clear();
   }
 

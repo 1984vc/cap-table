@@ -23,6 +23,7 @@ const Page: React.FC = () => {
   const [wsConnectionState, setWsConnectionState] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
   const [wsConnectedAt, setWsConnectedAt] = useState<Date | null>(null);
   const [wsLastError, setWsLastError] = useState<string | null>(null);
+  const [wsReconnectAttempts, setWsReconnectAttempts] = useState<number>(0);
   const [isCloning, setIsCloning] = useState(false);
   const [currentVersion, setCurrentVersion] = useState<number>(0);
   const skipNextSaveRef = useRef(false);
@@ -485,6 +486,59 @@ const Page: React.FC = () => {
     // Clean up
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
+
+  // Handle visibility changes (tab switching, minimizing, etc.)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('🔍 Tab became visible, checking WebSocket connection');
+        
+        // Check if WebSocket is still connected when tab becomes visible
+        if (wsRef.current && wsRef.current.readyState !== WebSocket.OPEN && state.objectId) {
+          console.log('🔄 WebSocket disconnected while tab was hidden, attempting to reconnect');
+          setWsConnectionState('connecting');
+          
+          // Reconnect WebSocket
+          const objectId = state.objectId;
+          const editKey = state.editKey;
+          
+          wsRef.current = backendService.connectWebSocket(objectId, (message) => {
+            handleUpdateNotification(message, objectId, editKey);
+          });
+          
+          // Add event listeners to track connection state
+          if (wsRef.current) {
+            wsRef.current.addEventListener('open', () => {
+              setWsConnectionState('connected');
+              setWsConnectedAt(new Date());
+              setWsLastError(null);
+              setWsReconnectAttempts(0);
+              console.log('✅ WebSocket reconnected after tab visibility change');
+            });
+            
+            wsRef.current.addEventListener('close', () => {
+              setWsConnectionState('disconnected');
+              setWsConnectedAt(null);
+            });
+            
+            wsRef.current.addEventListener('error', () => {
+              setWsConnectionState('error');
+              setWsLastError('WebSocket connection error');
+              setWsReconnectAttempts(prev => prev + 1);
+            });
+          }
+        }
+      } else {
+        console.log('🙈 Tab became hidden');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [state.objectId, state.editKey, backendService, handleUpdateNotification]);
 
   if (isLoading) {
     return (
