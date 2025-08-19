@@ -32,6 +32,7 @@ interface WebSocketConnection {
   shouldReconnect: boolean;
   isIdle: boolean;
   lastActivity: number;
+  heartbeatFailures: number;
 }
 
 export class WebSocketManager {
@@ -39,12 +40,13 @@ export class WebSocketManager {
   private events: WebSocketManagerEvents;
   private connectionState: WebSocketConnectionState;
   
-  private readonly HEARTBEAT_INTERVAL = 30_000; // 30 seconds
-  private readonly HEARTBEAT_TIMEOUT = 10_000; // 10 seconds
+  private readonly HEARTBEAT_INTERVAL = 10_000; // 10 seconds (reduced for testing)
+  private readonly HEARTBEAT_TIMEOUT = 5_000; // 5 seconds (reduced for testing)
   private readonly MAX_RECONNECT_ATTEMPTS = 10;
   private readonly INITIAL_RECONNECT_DELAY = 1000; // 1 second
-  private readonly IDLE_TIMEOUT = 120_000; // 5 minutes of inactivity before going idle
-  private readonly IDLE_DISCONNECT_TIMEOUT = 300_000; // 10 minutes idle before disconnect
+  private readonly IDLE_TIMEOUT = 30_000; // 30 seconds of inactivity before going idle (reduced for testing)
+  private readonly IDLE_DISCONNECT_TIMEOUT = 60_000; // 1 minute idle before disconnect (reduced for testing)
+  private readonly HEARTBEAT_RETRY_COUNT = 3; // Number of heartbeat failures before disconnecting
 
   constructor(events: WebSocketManagerEvents) {
     this.events = events;
@@ -78,7 +80,8 @@ export class WebSocketManager {
       lastPongReceived: Date.now(),
       shouldReconnect: true,
       isIdle: false,
-      lastActivity: Date.now()
+      lastActivity: Date.now(),
+      heartbeatFailures: 0
     };
 
     this.setupWebSocketHandlers(connection);
@@ -134,6 +137,7 @@ export class WebSocketManager {
       connection.reconnectDelay = this.INITIAL_RECONNECT_DELAY;
       connection.isReconnecting = false;
       connection.lastPongReceived = Date.now();
+      connection.heartbeatFailures = 0;
 
       this.updateConnectionState({
         status: 'connected',
@@ -161,6 +165,7 @@ export class WebSocketManager {
         // Handle pong messages for heartbeat
         if (data.type === 'pong') {
           connection.lastPongReceived = Date.now();
+          connection.heartbeatFailures = 0; // Reset failure count on successful pong
           console.log(`💓 Heartbeat pong received`);
           console.groupEnd();
           return;
@@ -247,9 +252,14 @@ export class WebSocketManager {
         // Check if we received a pong recently
         const timeSinceLastPong = Date.now() - this.connection.lastPongReceived;
         if (timeSinceLastPong > this.HEARTBEAT_TIMEOUT) {
-          console.log(`💔 Heartbeat timeout, closing connection`);
-          this.connection.ws.close(1000, 'Heartbeat timeout');
-          return;
+          this.connection.heartbeatFailures++;
+          console.log(`💔 Heartbeat timeout (failure ${this.connection.heartbeatFailures}/${this.HEARTBEAT_RETRY_COUNT})`);
+          
+          if (this.connection.heartbeatFailures >= this.HEARTBEAT_RETRY_COUNT) {
+            console.log(`💔 Max heartbeat failures reached, closing connection`);
+            this.connection.ws.close(1000, 'Heartbeat timeout');
+            return;
+          }
         }
 
         // Only send ping if not idle
@@ -285,7 +295,7 @@ export class WebSocketManager {
     
     if (this.connection.isIdle && timeSinceActivity > this.IDLE_DISCONNECT_TIMEOUT) {
       console.log(`💤 Disconnecting idle connection after ${timeSinceActivity}ms of inactivity`);
-      this.connection.shouldReconnect = false; // Don't auto-reconnect idle connections
+      // Mark as idle disconnect but keep shouldReconnect true so markActive() can reconnect
       this.connection.ws.close(1000, 'Idle timeout');
     }
   }
@@ -344,10 +354,19 @@ export class WebSocketManager {
     if (document.visibilityState === 'visible') {
       console.log('🔍 Tab became visible, checking WebSocket connection');
       
+      // Mark as active when tab becomes visible
+      this.markActive();
+      
       // Check if WebSocket is still connected when tab becomes visible
       if (this.connection && this.connection.ws.readyState !== WebSocket.OPEN) {
         console.log('🔄 WebSocket disconnected while tab was hidden, attempting to reconnect');
+        this.connection.shouldReconnect = true; // Ensure reconnection is enabled
         this.updateConnectionState({ status: 'connecting' });
+        
+        // Reset reconnection state for visibility-based reconnection
+        this.connection.isReconnecting = true;
+        this.connection.reconnectAttempts = 0;
+        this.connection.reconnectDelay = this.INITIAL_RECONNECT_DELAY;
         
         // Reconnect WebSocket
         this.connection.ws = new WebSocket(this.connection.url);

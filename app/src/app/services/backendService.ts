@@ -55,17 +55,19 @@ interface WebSocketConnection {
   shouldReconnect: boolean;
   isIdle: boolean;
   lastActivity: number;
+  heartbeatFailures: number;
 }
 
 export class BackendService {
   private static instance: BackendService;
   private websockets: Map<string, WebSocketConnection> = new Map();
-  private readonly HEARTBEAT_INTERVAL = 30000; // 30 seconds
-  private readonly HEARTBEAT_TIMEOUT = 10000; // 10 seconds
+  private readonly HEARTBEAT_INTERVAL = 10000; // 10 seconds (match WebSocketManager)
+  private readonly HEARTBEAT_TIMEOUT = 5000; // 5 seconds (match WebSocketManager)
   private readonly MAX_RECONNECT_ATTEMPTS = 10;
   private readonly INITIAL_RECONNECT_DELAY = 1000; // 1 second
-  private readonly IDLE_TIMEOUT = 300000; // 5 minutes of inactivity before going idle
-  private readonly IDLE_DISCONNECT_TIMEOUT = 600000; // 10 minutes idle before disconnect
+  private readonly IDLE_TIMEOUT = 30000; // 30 seconds (match WebSocketManager)
+  private readonly IDLE_DISCONNECT_TIMEOUT = 60000; // 1 minute (match WebSocketManager)
+  private readonly HEARTBEAT_RETRY_COUNT = 3; // Number of heartbeat failures before disconnecting
 
   static getInstance(): BackendService {
     if (!BackendService.instance) {
@@ -206,7 +208,8 @@ export class BackendService {
       lastPongReceived: Date.now(),
       shouldReconnect: true,
       isIdle: false,
-      lastActivity: Date.now()
+      lastActivity: Date.now(),
+      heartbeatFailures: 0
     };
 
     this.setupWebSocketHandlers(id, connection);
@@ -232,6 +235,7 @@ export class BackendService {
       connection.reconnectDelay = this.INITIAL_RECONNECT_DELAY;
       connection.isReconnecting = false;
       connection.lastPongReceived = Date.now();
+      connection.heartbeatFailures = 0;
 
       // Start heartbeat
       this.startHeartbeat(id, connection);
@@ -252,6 +256,7 @@ export class BackendService {
         // Handle pong messages for heartbeat
         if (data.type === 'pong') {
           connection.lastPongReceived = Date.now();
+          connection.heartbeatFailures = 0; // Reset failure count on successful pong
           console.log(`💓 Heartbeat pong received`);
           console.groupEnd();
           return;
@@ -323,9 +328,14 @@ export class BackendService {
         // Check if we received a pong recently
         const timeSinceLastPong = Date.now() - connection.lastPongReceived;
         if (timeSinceLastPong > this.HEARTBEAT_TIMEOUT) {
-          console.log(`💔 Heartbeat timeout for ${id}, closing connection`);
-          connection.ws.close(1000, 'Heartbeat timeout');
-          return;
+          connection.heartbeatFailures++;
+          console.log(`💔 Heartbeat timeout for ${id} (failure ${connection.heartbeatFailures}/${this.HEARTBEAT_RETRY_COUNT})`);
+          
+          if (connection.heartbeatFailures >= this.HEARTBEAT_RETRY_COUNT) {
+            console.log(`💔 Max heartbeat failures reached for ${id}, closing connection`);
+            connection.ws.close(1000, 'Heartbeat timeout');
+            return;
+          }
         }
 
         // Only send ping if not idle

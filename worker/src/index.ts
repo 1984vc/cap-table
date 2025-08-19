@@ -73,8 +73,9 @@ function validateBase58(str: string): boolean {
 export class WorksheetCoordinatorDurableObject implements DurableObject {
 	private state: DurableObjectState;
 	private env: Env;
-	private sessions: Map<WebSocket, { lastPing: number; isAlive: boolean }>;
+	private sessions: Map<WebSocket, { lastPing: number; isAlive: boolean; worksheetId: string }>;
 	private cleanupInterval?: number;
+	private worksheetId: string | null = null;
 
 	constructor(state: DurableObjectState, env: Env) {
 		this.state = state;
@@ -97,9 +98,14 @@ export class WorksheetCoordinatorDurableObject implements DurableObject {
 		const deadConnections: WebSocket[] = [];
 		
 		this.sessions.forEach((sessionInfo, ws) => {
-			// Consider connection dead if no ping received in last 2 minutes
-			if (now - sessionInfo.lastPing > 120000 || ws.readyState !== WebSocket.OPEN) {
+			// Consider connection dead if no ping received in last 45 seconds (more generous than client timeout)
+			// This accounts for client heartbeat interval (10s) + timeout (5s) + retry count (3) + buffer
+			const deadThreshold = 45000; // 45 seconds
+			const timeSinceLastPing = now - sessionInfo.lastPing;
+			
+			if (timeSinceLastPing > deadThreshold || ws.readyState !== WebSocket.OPEN) {
 				deadConnections.push(ws);
+				console.log(`🧹 Marking connection as dead: ${timeSinceLastPing}ms since last ping, readyState: ${ws.readyState}`);
 			}
 		});
 
@@ -125,15 +131,36 @@ export class WorksheetCoordinatorDurableObject implements DurableObject {
 		
 		// Handle WebSocket upgrade
 		if (request.headers.get("Upgrade") === "websocket") {
+			// Extract worksheet ID from URL path or query params
+			const pathMatch = url.pathname.match(/\/api\/objects\/([^\/]+)\/ws/);
+			const worksheetId = pathMatch ? pathMatch[1].split('-')[0] : url.searchParams.get('worksheetId');
+			
+			if (!worksheetId) {
+				return new Response("Missing worksheet ID", { status: 400 });
+			}
+			
+			// Set the worksheet ID for this DO instance if not already set
+			if (!this.worksheetId) {
+				this.worksheetId = worksheetId;
+			} else if (this.worksheetId !== worksheetId) {
+				// This shouldn't happen if routing is correct, but log it
+				console.warn(`⚠️ Worksheet ID mismatch: expected ${this.worksheetId}, got ${worksheetId}`);
+			}
+
 			const webSocketPair = new WebSocketPair();
 			const [client, server] = Object.values(webSocketPair);
 
 			this.state.acceptWebSocket(server);
-			this.sessions.set(server, { lastPing: Date.now(), isAlive: true });
+			this.sessions.set(server, { 
+				lastPing: Date.now(), 
+				isAlive: true, 
+				worksheetId: worksheetId 
+			});
 			
 			console.group(`🔗 WebSocket Connection Established`);
 			console.log(`🕐 Connected at:`, new Date().toISOString());
 			console.log(`🌐 Request URL:`, request.url);
+			console.log(`📋 Worksheet ID:`, worksheetId);
 			console.log(`📊 Total active sessions:`, this.sessions.size);
 			console.log(`🔗 WebSocket pair created successfully`);
 			console.groupEnd();
@@ -154,12 +181,19 @@ export class WorksheetCoordinatorDurableObject implements DurableObject {
 			console.log(`📊 Message size:`, message.length, 'bytes');
 			console.log(`👥 Active sessions:`, this.sessions.size);
 			
+			let parsedMessage;
 			try {
-				const parsedMessage = JSON.parse(message);
+				parsedMessage = JSON.parse(message);
 				console.log(`📥 Parsed message:`, parsedMessage);
 				console.log(`🏷️ Message type:`, parsedMessage.type);
 				if (parsedMessage.worksheetId) {
 					console.log(`📋 Worksheet ID:`, parsedMessage.worksheetId);
+					
+					// Verify this broadcast is for the correct worksheet
+					if (this.worksheetId && parsedMessage.worksheetId !== this.worksheetId) {
+						console.warn(`⚠️ Broadcast worksheet ID mismatch: DO is for ${this.worksheetId}, message is for ${parsedMessage.worksheetId}`);
+						return new Response("Worksheet ID mismatch", { status: 400 });
+					}
 				}
 			} catch (e) {
 				console.log(`⚠️ Message is not JSON, broadcasting as-is`);
@@ -167,7 +201,14 @@ export class WorksheetCoordinatorDurableObject implements DurableObject {
 			
 			console.groupEnd();
 			
-			this.broadcast(message);
+			// Only broadcast if we have active sessions
+			if (this.sessions.size > 0) {
+				this.broadcast(message);
+				console.log(`✅ Broadcasted to ${this.sessions.size} sessions`);
+			} else {
+				console.log(`ℹ️ No active sessions to broadcast to`);
+			}
+			
 			return new Response("OK");
 		}
 
@@ -182,6 +223,13 @@ export class WorksheetCoordinatorDurableObject implements DurableObject {
 		console.log(`👥 Active sessions:`, this.sessions.size);
 		console.log(`🔗 WebSocket state:`, ws.readyState);
 		
+		const sessionInfo = this.sessions.get(ws);
+		if (!sessionInfo) {
+			console.warn(`⚠️ Received message from unknown WebSocket connection`);
+			console.groupEnd();
+			return;
+		}
+		
 		try {
 			if (typeof message === 'string') {
 				const parsedMessage = JSON.parse(message);
@@ -191,11 +239,8 @@ export class WorksheetCoordinatorDurableObject implements DurableObject {
 				// Handle ping/pong for heartbeat
 				if (parsedMessage.type === 'ping') {
 					// Update last ping time for this session
-					const sessionInfo = this.sessions.get(ws);
-					if (sessionInfo) {
-						sessionInfo.lastPing = Date.now();
-						sessionInfo.isAlive = true;
-					}
+					sessionInfo.lastPing = Date.now();
+					sessionInfo.isAlive = true;
 					
 					// Send pong response
 					const pongResponse = JSON.stringify({
@@ -212,24 +257,17 @@ export class WorksheetCoordinatorDurableObject implements DurableObject {
 					console.groupEnd();
 					return;
 				}
+				
+				// Handle other message types - for now, we don't expect clients to send data messages
+				// The real-time updates are handled via HTTP PUT + broadcast, not direct WebSocket messages
+				console.log(`ℹ️ Received non-ping message from client, ignoring: ${parsedMessage.type}`);
 			} else {
-				console.log(`📦 Binary message received`);
+				console.log(`📦 Binary message received, ignoring`);
 			}
 		} catch (e) {
-			console.log(`⚠️ Message is not JSON, processing as-is`);
+			console.log(`⚠️ Message is not JSON, ignoring`);
 		}
 		console.groupEnd();
-
-		// Echo messages to all connected clients
-		const response = JSON.stringify({
-			type: "message",
-			data: message,
-			connections: this.sessions.size,
-			timestamp: new Date().toISOString()
-		});
-
-		console.log(`🔊 Broadcasting message to ${this.sessions.size} clients`);
-		this.broadcast(response);
 	}
 
 	async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean): Promise<void> {
@@ -258,16 +296,34 @@ export class WorksheetCoordinatorDurableObject implements DurableObject {
 	}
 
 	private broadcast(message: string): void {
+		const deadConnections: WebSocket[] = [];
+		let successCount = 0;
+		
 		this.sessions.forEach((sessionInfo, ws) => {
 			try {
 				if (ws.readyState === WebSocket.OPEN) {
 					ws.send(message);
+					successCount++;
+				} else {
+					// Connection is not open, mark for cleanup
+					deadConnections.push(ws);
 				}
 			} catch (error) {
 				console.error("Error broadcasting to WebSocket:", error);
-				this.sessions.delete(ws);
+				deadConnections.push(ws);
 			}
 		});
+		
+		// Clean up dead connections immediately
+		deadConnections.forEach(ws => {
+			this.sessions.delete(ws);
+		});
+		
+		if (deadConnections.length > 0) {
+			console.log(`🧹 Cleaned up ${deadConnections.length} dead connections during broadcast`);
+		}
+		
+		console.log(`📡 Successfully broadcasted to ${successCount} clients`);
 	}
 }
 
