@@ -330,21 +330,6 @@ export class WebSocketManager {
     this.setupWebSocketHandlers(this.connection);
   }
 
-  private reconnectFromIdle(): void {
-    if (!this.connection || this.connection.isReconnecting) {
-      return; // Already reconnecting
-    }
-
-    console.log(`🔄 Reconnecting from idle state`);
-    this.connection.isReconnecting = true;
-    this.connection.shouldReconnect = true;
-    this.connection.reconnectAttempts = 0; // Reset attempts for idle reconnection
-    this.connection.reconnectDelay = this.INITIAL_RECONNECT_DELAY;
-
-    // Create new WebSocket
-    this.connection.ws = new WebSocket(this.connection.url);
-    this.setupWebSocketHandlers(this.connection);
-  }
 
   private scheduleReconnect(): void {
     if (!this.connection || this.connection.isReconnecting) {

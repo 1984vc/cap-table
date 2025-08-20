@@ -1,12 +1,9 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { useStore } from "zustand";
 
 import { IConversionState } from "./state/ConversionState";
 import { getRandomData, initialState } from "./state/initialState";
-import { generateBase58UUID } from "@/utils/uuid";
-import { BackendService } from "@/services/backendService";
 import { 
   WebSocketManager, 
   WebSocketConnectionState, 
@@ -46,7 +43,6 @@ const WorksheetContainer: React.FC<WorksheetContainerProps> = ({ onCreateNew }) 
   });
   const [isCloning, setIsCloning] = useState(false);
 
-  const backendService = BackendService.getInstance();
 
   // Initialize managers and load data
   useEffect(() => {
@@ -117,7 +113,7 @@ const WorksheetContainer: React.FC<WorksheetContainerProps> = ({ onCreateNew }) 
 
       try {
         // Initialize state from URL
-        const result = await stateManagerRef.current.initialize(hash);
+        await stateManagerRef.current.initialize(hash);
         const state = stateManagerRef.current.getState();
         
         // Update URL if needed

@@ -197,7 +197,7 @@ export class BackendService {
     const wsUrl = `${BACKEND_URL.replace('https://', 'wss://').replace('http://', 'ws://')}/api/objects/${id}/ws`;
     
     // Create connection object
-    const connection: WebSocketConnection = {
+    const wsConnection: WebSocketConnection = {
       ws: new WebSocket(wsUrl),
       url: wsUrl,
       onMessage,
@@ -212,17 +212,17 @@ export class BackendService {
       heartbeatFailures: 0
     };
 
-    this.setupWebSocketHandlers(id, connection);
-    this.websockets.set(id, connection);
+    this.setupWebSocketHandlers(id, wsConnection);
+    this.websockets.set(id, wsConnection);
     
     console.log(`🔗 Connecting WebSocket for worksheet ${id} to:`, wsUrl);
-    return connection.ws;
+    return wsConnection.ws;
   }
 
   private setupWebSocketHandlers(id: string, connection: WebSocketConnection): void {
     const { ws, onMessage } = connection;
 
-    ws.onopen = (event) => {
+    ws.onopen = () => {
       console.group(`🔗 WebSocket Connected for ${id}`);
       console.log(`🕐 Connected at:`, new Date().toISOString());
       console.log(`🌐 URL:`, connection.url);
@@ -404,7 +404,7 @@ export class BackendService {
   }
 
   disconnectAll(): void {
-    this.websockets.forEach((connection, id) => {
+    this.websockets.forEach((_, id) => {
       this.cleanupConnection(id);
     });
     this.websockets.clear();

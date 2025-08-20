@@ -7,7 +7,7 @@ import {
   IConversionState,
 } from "../state/ConversionState";
 import { getSerializedSelector } from "../state/selectors/SerializeSelector";
-import { BackendService, BackendResponse } from "@/services/backendService";
+import { BackendService } from "@/services/backendService";
 import { WebSocketMessage, WebSocketManager } from "./WebSocketManager";
 import { generateDockerStyleName } from "@/utils/names";
 
