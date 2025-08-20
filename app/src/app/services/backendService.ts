@@ -129,8 +129,8 @@ export class BackendService {
 
   async createObject(data: IConversionStateData): Promise<{ id: string; editKey: string }> {
     // Generate a temporary ID for the PUT request
-    const tempId = this.generateBase58Id();
-    const tempEditKey = this.generateBase58Id();
+    const tempId = this.generateBase58Id(17);
+    const tempEditKey = this.generateBase58Id(6);
     
     const response = await fetch(`${BACKEND_URL}/api/objects/${tempId}-${tempEditKey}`, {
       method: "PUT",
@@ -147,7 +147,7 @@ export class BackendService {
     return { id: tempId, editKey: tempEditKey };
   }
 
-  private generateBase58Id(len: number = 22): string {
+  private generateBase58Id(len: number = 17): string {
     const base58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
     let result = '';
     for (let i = 0; i < len; i++) {

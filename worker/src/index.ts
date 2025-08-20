@@ -466,8 +466,8 @@ async function handleLegacyConversion(request: Request, env: Env): Promise<Respo
 		}
 
 		// Generate new IDs
-		const id = generateBase58Id(22); // Match the frontend ID length
-		const editKey = generateBase58Id(16);
+		const id = generateBase58Id(17); // Shortened UUID length
+		const editKey = generateBase58Id(6); // Shortened edit key length
 		const now = new Date().toISOString();
 		const version = 1;
 
@@ -604,7 +604,7 @@ async function handlePut(request: Request, env: Env, compositeId: string): Promi
 			// Create new worksheet
 			// Accept edit key from either header or URL
 			const urlEditKey = parsedId.editKey;
-			const finalEditKey = editKey || urlEditKey || generateBase58Id(16);
+			const finalEditKey = editKey || urlEditKey || generateBase58Id(6);
 			
 			const worksheetId = objectId || id;
 			const now = new Date().toISOString();
