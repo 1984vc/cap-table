@@ -25,6 +25,7 @@ export type IRowState = SAFEState | ExistingShareholderState | SeriesState;
 
 // The only thing we need to serialize
 export interface IConversionStateData {
+  name?: string;
   targetOptionsPool: number;
   rowData: IRowState[];
   unusedOptions: number;
@@ -40,6 +41,7 @@ export interface IConversionState extends IConversionStateData {
   onAddRow: (type: CapTableRowType.Common | CapTableRowType.Safe | CapTableRowType.Series) => void;
   onDeleteRow: (id: string) => void;
   onUpdateRow: (data: IRowState) => void;
+  onUpdateName: (name: string) => void;
   onValueChange: (
     type: "number" | "percent",
   ) => (
@@ -162,6 +164,13 @@ export const createConversionStore = (initialState: IConversionStateData) =>
       set((state) => ({
         ...state,
         rowData: state.rowData.map((row) => (row.id === data.id ? data : row)),
+      }));
+    },
+
+    onUpdateName: (name: string) => {
+      set((state) => ({
+        ...state,
+        name: name.trim() || undefined,
       }));
     },
 

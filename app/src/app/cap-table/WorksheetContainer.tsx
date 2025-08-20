@@ -111,6 +111,9 @@ const WorksheetContainer: React.FC<WorksheetContainerProps> = ({ onCreateNew }) 
       
       // Initialize WebSocketManager
       webSocketManagerRef.current = new WebSocketManager(webSocketEvents);
+      
+      // Connect StateManager and WebSocketManager for health checks
+      stateManagerRef.current.setWebSocketManager(webSocketManagerRef.current);
 
       try {
         // Initialize state from URL
@@ -167,6 +170,8 @@ const WorksheetContainer: React.FC<WorksheetContainerProps> = ({ onCreateNew }) 
 
     const markActive = () => {
       webSocketManagerRef.current?.markActive();
+      // Also ensure connection is healthy on any interaction
+      webSocketManagerRef.current?.ensureConnected();
     };
 
     // Track various user interactions

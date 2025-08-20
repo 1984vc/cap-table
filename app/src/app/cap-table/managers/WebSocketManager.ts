@@ -40,13 +40,13 @@ export class WebSocketManager {
   private events: WebSocketManagerEvents;
   private connectionState: WebSocketConnectionState;
   
-  private readonly HEARTBEAT_INTERVAL = 10_000; // 10 seconds (reduced for testing)
-  private readonly HEARTBEAT_TIMEOUT = 5_000; // 5 seconds (reduced for testing)
+  private readonly HEARTBEAT_INTERVAL = 5_000; // 5 seconds (for testing)
+  private readonly HEARTBEAT_TIMEOUT = 3_000; // 3 seconds (for testing)
   private readonly MAX_RECONNECT_ATTEMPTS = 10;
   private readonly INITIAL_RECONNECT_DELAY = 1000; // 1 second
-  private readonly IDLE_TIMEOUT = 30_000; // 30 seconds of inactivity before going idle (reduced for testing)
-  private readonly IDLE_DISCONNECT_TIMEOUT = 60_000; // 1 minute idle before disconnect (reduced for testing)
-  private readonly HEARTBEAT_RETRY_COUNT = 3; // Number of heartbeat failures before disconnecting
+  private readonly IDLE_TIMEOUT = 10_000; // 10 seconds of inactivity before going idle (for testing)
+  private readonly IDLE_DISCONNECT_TIMEOUT = 20_000; // 20 seconds idle before disconnect (for testing)
+  private readonly HEARTBEAT_RETRY_COUNT = 2; // Number of heartbeat failures before disconnecting (reduced for testing)
 
   constructor(events: WebSocketManagerEvents) {
     this.events = events;
@@ -105,15 +105,26 @@ export class WebSocketManager {
   markActive(): void {
     if (this.connection) {
       this.connection.lastActivity = Date.now();
-      if (this.connection.isIdle) {
-        console.log(`🔄 Connection becoming active, attempting reconnect if needed`);
+      
+      // Always check if we need to reconnect, not just when idle
+      if (this.connection.ws.readyState === WebSocket.CLOSED || 
+          this.connection.ws.readyState === WebSocket.CLOSING) {
+        console.log(`🔄 Connection closed, attempting reconnect on user activity`);
+        this.attemptReconnect();
+      } else if (this.connection.isIdle) {
+        console.log(`🔄 Connection becoming active from idle`);
         this.connection.isIdle = false;
-        
-        // If connection is closed, reconnect
-        if (this.connection.ws.readyState === WebSocket.CLOSED) {
-          this.reconnectFromIdle();
-        }
       }
+    }
+  }
+
+  ensureConnected(): void {
+    if (!this.connection) return;
+    
+    const state = this.connection.ws.readyState;
+    if (state !== WebSocket.OPEN && state !== WebSocket.CONNECTING) {
+      console.log(`🔍 Connection not healthy (state: ${state}), reconnecting...`);
+      this.attemptReconnect();
     }
   }
 
@@ -295,9 +306,28 @@ export class WebSocketManager {
     
     if (this.connection.isIdle && timeSinceActivity > this.IDLE_DISCONNECT_TIMEOUT) {
       console.log(`💤 Disconnecting idle connection after ${timeSinceActivity}ms of inactivity`);
-      // Mark as idle disconnect but keep shouldReconnect true so markActive() can reconnect
+      // Don't set shouldReconnect to false here - we want to reconnect on activity
       this.connection.ws.close(1000, 'Idle timeout');
     }
+  }
+
+  private attemptReconnect(): void {
+    if (!this.connection || this.connection.isReconnecting) {
+      return;
+    }
+    
+    // Reset connection state for fresh reconnection
+    this.connection.isReconnecting = true;
+    this.connection.shouldReconnect = true;
+    this.connection.isIdle = false;
+    this.connection.reconnectAttempts = 0;
+    this.connection.reconnectDelay = this.INITIAL_RECONNECT_DELAY;
+    
+    console.log(`🔄 Attempting to reconnect WebSocket`);
+    
+    // Create new WebSocket connection
+    this.connection.ws = new WebSocket(this.connection.url);
+    this.setupWebSocketHandlers(this.connection);
   }
 
   private reconnectFromIdle(): void {

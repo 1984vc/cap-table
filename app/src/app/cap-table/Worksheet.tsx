@@ -3,7 +3,7 @@ import CurrencyInput from "react-currency-input-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-import { FaRegQuestionCircle } from "react-icons/fa";
+import { FaRegQuestionCircle, FaEdit } from "react-icons/fa";
 
 import {
   IConversionState,
@@ -52,6 +52,7 @@ const Worksheet: React.FC<WorksheetProps> = ({
   isCloning,
 }) => {
   const {
+    name,
     rowData,
     preMoney,
     targetOptionsPool,
@@ -59,6 +60,7 @@ const Worksheet: React.FC<WorksheetProps> = ({
     onAddRow,
     onDeleteRow,
     onUpdateRow,
+    onUpdateName,
     onMoveRow,
     onValueChange,
     togglepriceRounds,
@@ -106,6 +108,28 @@ const Worksheet: React.FC<WorksheetProps> = ({
     setPostMoney(stringToNumber(val ?? 0));
   };
 
+  // State for editing worksheet name
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [tempName, setTempName] = useState(name || "");
+
+  const handleNameSave = () => {
+    onUpdateName(tempName);
+    setIsEditingName(false);
+  };
+
+  const handleNameCancel = () => {
+    setTempName(name || "");
+    setIsEditingName(false);
+  };
+
+  const handleNameKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleNameSave();
+    } else if (e.key === 'Escape') {
+      handleNameCancel();
+    }
+  };
+
   return (
     <div className={"not-prose mx-4"}>
       <div className="w-full flex justify-end gap-2 mb-6">
@@ -125,6 +149,42 @@ const Worksheet: React.FC<WorksheetProps> = ({
           </Button>
         )}
       </div>
+
+      {/* Worksheet Name Section */}
+      <div className="mb-8 pl-2">
+        {isEditingName && !isReadOnly ? (
+          <div className="flex items-center gap-2">
+            <Input
+              value={tempName}
+              onChange={(e) => setTempName(e.target.value)}
+              onKeyDown={handleNameKeyPress}
+              onBlur={handleNameSave}
+              className="text-3xl font-bold bg-transparent border-2 border-nt84orange focus:border-nt84orange"
+              placeholder="Enter worksheet name..."
+              autoFocus
+            />
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 group">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              {name || "Untitled Worksheet"}
+            </h1>
+            {!isReadOnly && (
+              <button
+                onClick={() => {
+                  setTempName(name || "");
+                  setIsEditingName(true);
+                }}
+                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                title="Edit worksheet name"
+              >
+                <FaEdit className="w-4 h-4 text-gray-500 hover:text-nt84orange" />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
       <h1 className="text-2xl font-bold mb-12 pl-2">1&#41;  Existing Cap Table</h1>
       <div>
         <ExisingShareholderList

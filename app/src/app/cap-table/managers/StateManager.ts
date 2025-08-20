@@ -8,7 +8,8 @@ import {
 } from "../state/ConversionState";
 import { getSerializedSelector } from "../state/selectors/SerializeSelector";
 import { BackendService, BackendResponse } from "@/services/backendService";
-import { WebSocketMessage } from "./WebSocketManager";
+import { WebSocketMessage, WebSocketManager } from "./WebSocketManager";
+import { generateDockerStyleName } from "@/utils/names";
 
 export interface StateManagerEvents {
   onStateChange: (state: IConversionState) => void;
@@ -36,6 +37,7 @@ export class StateManager {
   private diffPatcher = jsondiffpatch.create();
   private saveTimeoutId: number | null = null;
   private readonly SAVE_DEBOUNCE_MS = 2000;
+  private webSocketManager: WebSocketManager | null = null;
 
   constructor(initialState: IConversionStateData, events: StateManagerEvents) {
     this.store = createConversionStore(initialState);
@@ -65,6 +67,11 @@ export class StateManager {
   // Get current status
   getStatus(): StateManagerStatus {
     return { ...this.status };
+  }
+
+  // Set WebSocket manager reference for connection health checks
+  setWebSocketManager(webSocketManager: WebSocketManager): void {
+    this.webSocketManager = webSocketManager;
   }
 
   // Initialize state from backend or create new
@@ -98,7 +105,10 @@ export class StateManager {
     const serializedState = getSerializedSelector(currentState);
     
     const { id, editKey } = await this.backendService.createObject(serializedState);
-    const stateWithIds = { ...serializedState, objectId: id, editKey };
+    
+    // Generate name if not already set
+    const generatedName = !serializedState.name ? generateDockerStyleName(id) : serializedState.name;
+    const stateWithIds = { ...serializedState, objectId: id, editKey, name: generatedName };
     
     this.store.setState(stateWithIds);
     this.updateStatus({ currentVersion: 1 });
@@ -110,7 +120,10 @@ export class StateManager {
   async convertLegacyHash(hash: string): Promise<{ id: string; editKey: string }> {
     console.log("🔄 Converting legacy hash using backend...");
     const { id, editKey, data } = await this.backendService.convertLegacyHash(hash);
-    const stateWithIds = { ...data, objectId: id, editKey };
+    
+    // Generate name if not already set
+    const generatedName = !data.name ? generateDockerStyleName(id) : data.name;
+    const stateWithIds = { ...data, objectId: id, editKey, name: generatedName };
     
     this.store.setState(stateWithIds);
     this.updateStatus({ currentVersion: 1 });
@@ -127,7 +140,10 @@ export class StateManager {
       // Read-write access: objectId-editKey
       const [objectId, editKey] = hash.split('-');
       const response = await this.backendService.getObject(objectId);
-      const stateData = { ...response.data, objectId, editKey };
+      
+      // Generate name if not already set (for backward compatibility)
+      const generatedName = !response.data.name ? generateDockerStyleName(objectId) : response.data.name;
+      const stateData = { ...response.data, objectId, editKey, name: generatedName };
       
       this.store.setState(stateData);
       this.updateStatus({ currentVersion: response.version });
@@ -136,7 +152,10 @@ export class StateManager {
     } else {
       // Read-only access: objectId only
       const response = await this.backendService.getObject(hash);
-      const stateData = { ...response.data, objectId: hash };
+      
+      // Generate name if not already set (for backward compatibility)
+      const generatedName = !response.data.name ? generateDockerStyleName(hash) : response.data.name;
+      const stateData = { ...response.data, objectId: hash, name: generatedName };
       
       this.store.setState(stateData);
       this.updateStatus({ currentVersion: response.version });
@@ -159,7 +178,10 @@ export class StateManager {
     
     // Create new object with the current state
     const { id, editKey } = await this.backendService.createObject(currentStateData);
-    const stateWithIds = { ...currentStateData, objectId: id, editKey };
+    
+    // Generate new name for cloned worksheet
+    const generatedName = generateDockerStyleName(id);
+    const stateWithIds = { ...currentStateData, objectId: id, editKey, name: generatedName };
     
     this.store.setState(stateWithIds);
     this.updateStatus({ currentVersion: 1 });
@@ -286,6 +308,11 @@ export class StateManager {
       
       this.events.onSaveComplete(response.version);
       console.log('✅ Save successful', { version: response.version });
+      
+      // After successful save, ensure WebSocket is connected for real-time sync
+      if (this.webSocketManager) {
+        this.webSocketManager.ensureConnected();
+      }
     } catch (error) {
       console.error("❌ Failed to save:", error);
       this.updateStatus({ 
