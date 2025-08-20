@@ -102,7 +102,7 @@ const ExistingShareholderTableRow: React.FC<ExistingShareholderRowProps> = ({
     if (!editingCell) return;
 
     const { field } = editingCell;
-    let valueToSave: any;
+    let valueToSave: string | number;
 
     if (field === 'shares') {
       valueToSave = editNumericValue || 0;
@@ -140,7 +140,7 @@ const ExistingShareholderTableRow: React.FC<ExistingShareholderRowProps> = ({
       if (field === 'shares') {
         return (
           <CurrencyInput
-            ref={inputRef as any}
+            ref={inputRef as React.RefObject<HTMLInputElement>}
             value={editNumericValue || 0}
             onValueChange={(value) => setEditNumericValue(parseFloat(value || '0'))}
             onBlur={saveEdit}

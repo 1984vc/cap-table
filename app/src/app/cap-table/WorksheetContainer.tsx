@@ -15,6 +15,7 @@ import {
   StateManagerStatus 
 } from "./managers/StateManager";
 import Worksheet from "./Worksheet";
+import { DebugOverlay } from "./components/DebugOverlay";
 
 interface WorksheetContainerProps {
   onCreateNew: () => void;
@@ -42,7 +43,9 @@ const WorksheetContainer: React.FC<WorksheetContainerProps> = ({ onCreateNew }) 
     error: null
   });
   const [isCloning, setIsCloning] = useState(false);
-
+  const [showDebugOverlay, setShowDebugOverlay] = useState(false);
+  const [showSavingIndicator, setShowSavingIndicator] = useState(false);
+  const savingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize managers and load data
   useEffect(() => {
@@ -60,6 +63,11 @@ const WorksheetContainer: React.FC<WorksheetContainerProps> = ({ onCreateNew }) 
         },
         onSaveStart: () => {
           setStateStatus(prev => ({ ...prev, isSaving: true }));
+          setShowSavingIndicator(true);
+          // Clear any existing timeout
+          if (savingTimeoutRef.current) {
+            clearTimeout(savingTimeoutRef.current);
+          }
         },
         onSaveComplete: (version) => {
           setStateStatus(prev => ({ 
@@ -68,6 +76,10 @@ const WorksheetContainer: React.FC<WorksheetContainerProps> = ({ onCreateNew }) 
             currentVersion: version,
             lastUpdateSent: new Date()
           }));
+          // Keep the saving indicator visible for a moment
+          savingTimeoutRef.current = setTimeout(() => {
+            setShowSavingIndicator(false);
+          }, 500);
         },
         onSaveError: (error) => {
           setStateStatus(prev => ({ 
@@ -157,6 +169,31 @@ const WorksheetContainer: React.FC<WorksheetContainerProps> = ({ onCreateNew }) 
           stateManagerRef.current.destroy();
         }
       }, 100);
+    };
+  }, []);
+
+  // Handle Ctrl+D keyboard shortcut for debug overlay
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 'd') {
+        e.preventDefault();
+        setShowDebugOverlay(prev => {
+          const newValue = !prev;
+          // Enable/disable debug mode in WebSocketManager
+          if (webSocketManagerRef.current) {
+            webSocketManagerRef.current.setDebugMode(newValue);
+          }
+          return newValue;
+        });
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      if (savingTimeoutRef.current) {
+        clearTimeout(savingTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -283,10 +320,17 @@ const WorksheetContainer: React.FC<WorksheetContainerProps> = ({ onCreateNew }) 
         </div>
       )}
 
-      {/* Connection status and debug info */}
-      <div className="w-full max-w-5xl mb-6 px-2">
-        {/* Read-only mode indicator and clone button */}
-        {!conversionState.editKey && conversionState.objectId && (
+      {/* Debug Overlay */}
+      <DebugOverlay
+        isVisible={showDebugOverlay}
+        wsConnectionState={wsConnectionState}
+        stateStatus={stateStatus}
+        hasEditKey={!!conversionState.editKey}
+      />
+
+      {/* Read-only mode indicator and clone button */}
+      {!conversionState.editKey && conversionState.objectId && (
+        <div className="w-full max-w-5xl mb-6 px-2">
           <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
@@ -321,83 +365,18 @@ const WorksheetContainer: React.FC<WorksheetContainerProps> = ({ onCreateNew }) 
               </button>
             </div>
           </div>
-        )}
-        
-        {/* WebSocket Debug Information */}
-        <div className="flex flex-col mt-2 space-y-1">
-          <div className="flex items-center">
-            {/* Connection status indicator */}
-            {wsConnectionState.status === 'connected' && (
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
-            )}
-            {wsConnectionState.status === 'connecting' && (
-              <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse mr-2"></div>
-            )}
-            {wsConnectionState.status === 'disconnected' && (
-              <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
-            )}
-            {wsConnectionState.status === 'error' && (
-              <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
-            )}
-            
-            {/* Connection status text */}
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              {wsConnectionState.status === 'connected' && 'Connected - changes sync in real-time'}
-              {wsConnectionState.status === 'connecting' && 'Connecting to real-time sync...'}
-              {wsConnectionState.status === 'disconnected' && 'Disconnected - working offline'}
-              {wsConnectionState.status === 'error' && 'Connection error - working offline'}
-              {' '}
-              {conversionState.editKey ? '(Read/Write)' : '(Read-only)'}
-            </span>
-            
-            {/* Saving indicator */}
-            {stateStatus.isSaving && (
-              <span className="ml-2 text-xs text-blue-500 dark:text-blue-400">
-                Saving...
-              </span>
-            )}
-          </div>
-          
-          {/* Detailed metrics */}
-          <div className="flex items-center space-x-4 text-xs text-gray-400 dark:text-gray-500">
-            {/* Connection time */}
-            {wsConnectionState.connectedAt && (
-              <span>
-                Connected: {wsConnectionState.connectedAt.toISOString()}
-              </span>
-            )}
-            
-            {/* Last update sent (only for read-write mode) */}
-            {conversionState.editKey && stateStatus.lastUpdateSent && (
-              <span>
-                Last sent: {stateStatus.lastUpdateSent.toISOString()}
-              </span>
-            )}
-            
-            {/* Last update received */}
-            {stateStatus.lastUpdateReceived && (
-              <span>
-                Last received: {stateStatus.lastUpdateReceived.toISOString()}
-              </span>
-            )}
-            
-            {/* Error information */}
-            {wsConnectionState.lastError && (
-              <span className="text-red-400">
-                Error: {wsConnectionState.lastError}
-              </span>
-            )}
-          </div>
         </div>
-      </div>
+      )}
 
-      {/* Worksheet Component */}
+      {/* Worksheet Component with connection status */}
       <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
         <Worksheet
           conversionState={conversionState}
           createNewState={onCreateNew}
           onClone={handleClone}
           isCloning={isCloning}
+          wsConnectionState={wsConnectionState}
+          showSavingIndicator={showSavingIndicator}
         />
       </div>
     </div>

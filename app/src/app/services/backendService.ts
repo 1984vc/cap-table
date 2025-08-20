@@ -45,7 +45,7 @@ export interface BackendResponse {
 interface WebSocketConnection {
   ws: WebSocket;
   url: string;
-  onMessage: (message: any) => void;
+  onMessage: (message: unknown) => void;
   reconnectAttempts: number;
   maxReconnectAttempts: number;
   reconnectDelay: number;
@@ -182,7 +182,7 @@ export class BackendService {
     return response.json();
   }
 
-  connectWebSocket(id: string, onMessage: (message: any) => void): WebSocket {
+  connectWebSocket(id: string, onMessage: (message: unknown) => void): WebSocket {
     // Check if we already have a connection for this ID
     if (this.websockets.has(id)) {
       const existingConnection = this.websockets.get(id)!;
@@ -410,7 +410,7 @@ export class BackendService {
     this.websockets.clear();
   }
 
-  async convertLegacyHash(hash: string): Promise<{ id: string; editKey: string; data: any }> {
+  async convertLegacyHash(hash: string): Promise<{ id: string; editKey: string; data: IConversionStateData }> {
     const response = await fetch(`${BACKEND_URL}/api/legacy/convert`, {
       method: "POST",
       headers: {

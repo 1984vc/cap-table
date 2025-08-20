@@ -3,7 +3,7 @@ export interface WebSocketMessage {
   worksheetId?: string;
   version?: number;
   lastModified?: string;
-  data?: any;
+  data?: unknown;
   timestamp?: number;
 }
 
@@ -39,6 +39,7 @@ export class WebSocketManager {
   private connection: WebSocketConnection | null = null;
   private events: WebSocketManagerEvents;
   private connectionState: WebSocketConnectionState;
+  private debugMode: boolean = false;
   
   private readonly HEARTBEAT_INTERVAL = 5_000; // 5 seconds (for testing)
   private readonly HEARTBEAT_TIMEOUT = 3_000; // 3 seconds (for testing)
@@ -48,8 +49,9 @@ export class WebSocketManager {
   private readonly IDLE_DISCONNECT_TIMEOUT = 20_000; // 20 seconds idle before disconnect (for testing)
   private readonly HEARTBEAT_RETRY_COUNT = 2; // Number of heartbeat failures before disconnecting (reduced for testing)
 
-  constructor(events: WebSocketManagerEvents) {
+  constructor(events: WebSocketManagerEvents, debugMode: boolean = false) {
     this.events = events;
+    this.debugMode = debugMode;
     this.connectionState = {
       status: 'disconnected',
       connectedAt: null,
@@ -59,6 +61,14 @@ export class WebSocketManager {
 
     // Listen for visibility changes to handle tab switching
     document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
+  }
+
+  setDebugMode(enabled: boolean): void {
+    this.debugMode = enabled;
+  }
+
+  getDebugMode(): boolean {
+    return this.debugMode;
   }
 
   connect(wsUrl: string): void {

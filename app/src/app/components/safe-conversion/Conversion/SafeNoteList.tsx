@@ -47,6 +47,7 @@ const SAFETableRow: React.FC<SAFETableRowProps> = ({
   const [editValue, setEditValue] = useState<string>('');
   const [editNumericValue, setEditNumericValue] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const selectRef = useRef<HTMLSelectElement>(null);
 
   const conversionType = () => {
     if (data.conversionType === "yc7p") return "post";
@@ -83,14 +84,14 @@ const SAFETableRow: React.FC<SAFETableRowProps> = ({
     if (!editingCell) return;
 
     const { field } = editingCell;
-    let valueToSave: any;
+    let valueToSave: string | number;
 
     if (field === 'investment' || field === 'cap' || field === 'discount') {
       valueToSave = editNumericValue || 0;
       onUpdate({ ...data, [field]: valueToSave });
     } else if (field === 'conversionType') {
       valueToSave = editValue;
-      onUpdate({ ...data, conversionType: valueToSave as any });
+      onUpdate({ ...data, conversionType: valueToSave as SAFEProps['conversionType'] });
     } else {
       valueToSave = editValue;
       onUpdate({ ...data, [field]: valueToSave });
@@ -156,7 +157,7 @@ const SAFETableRow: React.FC<SAFETableRowProps> = ({
       if (field === 'investment' || field === 'cap') {
         return (
           <CurrencyInput
-            ref={inputRef as any}
+            ref={inputRef as React.RefObject<HTMLInputElement>}
             value={editNumericValue || 0}
             onValueChange={(value) => setEditNumericValue(parseFloat(value || '0'))}
             onBlur={saveEdit}
@@ -172,7 +173,7 @@ const SAFETableRow: React.FC<SAFETableRowProps> = ({
       } else if (field === 'discount') {
         return (
           <CurrencyInput
-            ref={inputRef as any}
+            ref={inputRef as React.RefObject<HTMLInputElement>}
             value={editNumericValue || 0}
             onValueChange={(value) => setEditNumericValue(parseFloat(value || '0'))}
             onBlur={saveEdit}
@@ -191,11 +192,11 @@ const SAFETableRow: React.FC<SAFETableRowProps> = ({
       } else if (field === 'conversionType') {
         return (
           <select
-            ref={inputRef as any}
+            ref={selectRef}
             value={conversionType()}
             onChange={(e) => {
               setEditValue(e.target.value);
-              onUpdate({ ...data, conversionType: e.target.value as any });
+              onUpdate({ ...data, conversionType: e.target.value as SAFEProps['conversionType'] });
               setEditingCell(null);
             }}
             onBlur={saveEdit}
