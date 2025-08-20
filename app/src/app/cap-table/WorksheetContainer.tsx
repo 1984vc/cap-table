@@ -16,6 +16,7 @@ import {
 } from "./managers/StateManager";
 import Worksheet from "./Worksheet";
 import { DebugOverlay } from "./components/DebugOverlay";
+import { addToHistory } from "@/services/historyService";
 
 interface WorksheetContainerProps {
   onCreateNew: () => void;
@@ -135,6 +136,11 @@ const WorksheetContainer: React.FC<WorksheetContainerProps> = ({ onCreateNew }) 
           window.location.hash = `${state.objectId}-${state.editKey}`;
         }
 
+        // Add to history if we have a valid worksheet
+        if (state.objectId) {
+          addToHistory(state.objectId, state.name, state.editKey);
+        }
+
         // Connect WebSocket if we have an objectId
         if (state.objectId) {
           const backendUrl = getBackendUrl();
@@ -231,6 +237,20 @@ const WorksheetContainer: React.FC<WorksheetContainerProps> = ({ onCreateNew }) 
         return;
       }
       
+      // Extract objectId and editKey from the new hash
+      const newHash = window.location.hash.slice(1);
+      if (newHash) {
+        const parts = newHash.split('-');
+        const objectId = parts[0];
+        const editKey = parts.length > 1 ? parts.slice(1).join('-') : undefined;
+        
+        // Add to history before reloading
+        if (objectId) {
+          // We don't have the name yet, so it will be generated from UUID
+          addToHistory(objectId, undefined, editKey);
+        }
+      }
+      
       // When the hash changes manually, reload the page to reinitialize everything
       window.location.reload();
     };
@@ -265,6 +285,9 @@ const WorksheetContainer: React.FC<WorksheetContainerProps> = ({ onCreateNew }) 
       if (webSocketManagerRef.current) {
         webSocketManagerRef.current.disconnect();
       }
+      
+      // Add cloned worksheet to history
+      addToHistory(id, conversionState.name, editKey);
       
       // Update URL
       window.location.hash = `${id}-${editKey}`;

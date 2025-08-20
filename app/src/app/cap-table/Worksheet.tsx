@@ -18,6 +18,7 @@ import { getSAFERowPropsSelector } from "@/cap-table/state/selectors/SAFEPropsSe
 import { getSeriesPropsSelector } from "@/cap-table/state/selectors/SeriesPropsSelector";
 import SafeNoteList from "@/components/safe-conversion/Conversion/SafeNoteList";
 import Share from "@/components/safe-conversion/Conversion/Share";
+import History from "@/components/safe-conversion/Conversion/History";
 import { CapTableResults } from "@/components/safe-conversion/Conversion/CapTableResults";
 import { getReadOnlyUrl, getFullAccessUrl, hasEditAccess } from "./state/selectors/ShareURLSelector";
 import { getErrorSelector } from "./state/selectors/ErrorSelector";
@@ -217,6 +218,9 @@ const Worksheet: React.FC<WorksheetProps> = ({
             hasEditAccess={hasEditAccess(conversionState)}
             onClone={onClone}
             isCloning={isCloning}
+          />
+          <History 
+            currentObjectId={conversionState.objectId}
           />
           {!isReadOnly && (
             <Button
