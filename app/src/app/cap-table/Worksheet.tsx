@@ -31,6 +31,7 @@ import {
 } from "./state/selectors/PricedRoundSelector";
 import TooltipComponent from "@/components/tooltip/Tooltip";
 import { CapTableRowType } from "@library/cap-table/types";
+import { addToHistory } from "@/services/historyService";
 
 type WorksheetProps = {
   conversionState: IConversionState;
@@ -120,6 +121,10 @@ const Worksheet: React.FC<WorksheetProps> = ({
 
   const handleNameSave = () => {
     onUpdateName(tempName);
+    // Update history with the new name immediately
+    if (conversionState.objectId) {
+      addToHistory(conversionState.objectId, tempName, conversionState.editKey);
+    }
     setIsEditingName(false);
   };
 
