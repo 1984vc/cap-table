@@ -1,0 +1,30 @@
+# Production environment configuration
+name = "1984-startup-finance-worker"
+main = "src/index.ts"
+compatibility_date = "2025-06-20"
+
+# Migrations for Durable Objects (matches existing production)
+[[migrations]]
+tag = "v3"
+deleted_classes = ["JSONObjectStore"]
+
+# Production Durable Objects configuration
+[durable_objects]
+bindings = [
+  { class_name = "WorksheetCoordinatorDurableObject", name = "WORKSHEET_COORDINATOR" }
+]
+
+# Production D1 database configuration
+[[d1_databases]]
+binding = "DB"
+database_name = "startup-finance-worksheets"
+database_id = "145206fd-2992-47a3-96e8-b420b4611a7a"  # Existing production database
+
+# Static assets
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# Enable observability for production
+[observability]
+enabled = true

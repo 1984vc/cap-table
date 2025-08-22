@@ -12,7 +12,7 @@ jobs:
     environment: staging
     defaults:
       run:
-        working-directory: ./google-apps-script
+        working-directory: ./app/google-apps-script
     steps:
       - name: Fetch Repository
         uses: actions/checkout@v1
@@ -38,7 +38,7 @@ jobs:
           clientId: ${{ secrets.CLIENT_ID }}
           clientSecret: ${{ secrets.CLIENT_SECRET }}
           scriptId: ${{ vars.SCRIPT_ID }}
-          rootDir: ./google-apps-script
+          rootDir: ./app/google-apps-script
           command: "push"
       - name: Link to deployment
         run:

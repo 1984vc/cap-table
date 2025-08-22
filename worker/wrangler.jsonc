@@ -1,0 +1,41 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "1984-startup-finance-worker",
+	"main": "src/index.ts",
+	"compatibility_date": "2025-06-20",
+	"migrations": [
+		{
+			"tag": "v3",
+			"deleted_classes": [
+				"JSONObjectStore"
+			]
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"class_name": "WorksheetCoordinatorDurableObject",
+				"name": "WORKSHEET_COORDINATOR"
+			}
+		]
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "startup-finance-worksheets",
+			"database_id": "145206fd-2992-47a3-96e8-b420b4611a7a"
+		}
+	],
+	"observability": {
+		"enabled": true
+	},
+	/**
+	 * Static Assets
+	 * https://developers.cloudflare.com/workers/static-assets/binding/
+	 */
+	"assets": { "directory": "./public", "binding": "ASSETS" }
+}
