@@ -105,16 +105,21 @@ const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
           ) : (
             <div>
               <div className="text-gray-500 dark:text-gray-400 mb-1">Name</div>
-              <Input
-                type="text"
-                name="name"
-                autoComplete="off"
-                value={data.name}
-                onChange={handleInputChange}
-                placeholder="Common Shareholder Name"
-                className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
-                readOnly={isReadOnly}
-              />
+              {isReadOnly ? (
+                <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">
+                  {data.name}
+                </div>
+              ) : (
+                <Input
+                  type="text"
+                  name="name"
+                  autoComplete="off"
+                  value={data.name}
+                  onChange={handleInputChange}
+                  placeholder="Common Shareholder Name"
+                  className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              )}
             </div>
           )}
         </div>

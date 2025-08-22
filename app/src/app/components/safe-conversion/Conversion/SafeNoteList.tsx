@@ -118,16 +118,21 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
         <div className="mb-3 md:mb-0 md:w-[25%]">
           <div className="text-gray-500 dark:text-gray-400 mb-1">Name</div>
           <div className="flex items-center">
-            <Input
-              type="text"
-              name="name"
-              autoComplete="off"
-              value={data.name}
-              onChange={handleInputChange}
-              placeholder="Name"
-              className="w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              readOnly={isReadOnly}
-            />
+            {isReadOnly ? (
+              <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600 w-full">
+                {data.name}
+              </div>
+            ) : (
+              <Input
+                type="text"
+                name="name"
+                autoComplete="off"
+                value={data.name}
+                onChange={handleInputChange}
+                placeholder="Name"
+                className="w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            )}
           </div>
         </div>
         <div className="mb-3 md:mb-0 md:w-[16%]">
@@ -211,17 +216,24 @@ const SAFEInputRow: React.FC<SAFEInputRowProps> = ({
 
         <div className="mb-3 md:mb-0 md:w-[18%]">
           <div className="text-gray-500 dark:text-gray-400 mb-1">Type</div>
-          <select
-            name="conversionType"
-            value={conversionType()}
-            onChange={handleDropDownChange}
-            className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-500 text-gray-900 dark:text-white"
-            disabled={isReadOnly}
-          >
-            <option value="post">Post Money</option>
-            <option value="pre">Pre Money</option>
-            <option value="mfn">Uncapped MFN</option>
-          </select>
+          {isReadOnly ? (
+            <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">
+              {conversionType() === "post" && "Post Money"}
+              {conversionType() === "pre" && "Pre Money"}
+              {conversionType() === "mfn" && "Uncapped MFN"}
+            </div>
+          ) : (
+            <select
+              name="conversionType"
+              value={conversionType()}
+              onChange={handleDropDownChange}
+              className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-500 text-gray-900 dark:text-white"
+            >
+              <option value="post">Post Money</option>
+              <option value="pre">Pre Money</option>
+              <option value="mfn">Uncapped MFN</option>
+            </select>
+          )}
         </div>
 
         <div className="mb-3 md:mb-0 md:w-[12%]">
