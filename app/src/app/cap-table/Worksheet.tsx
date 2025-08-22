@@ -143,9 +143,9 @@ const Worksheet: React.FC<WorksheetProps> = ({
 
   return (
     <div className={"not-prose mx-4"}>
-      <div className="w-full flex justify-between items-start mb-6">
+      <div className="w-full flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4 mb-6">
         {/* Left side: Worksheet Name and Connection Status */}
-        <div className="flex flex-col">
+        <div className="flex flex-col min-w-0 flex-1">
           {/* Worksheet Name Section */}
           <div className="mb-2">
             {isEditingName && !isReadOnly ? (
@@ -155,14 +155,14 @@ const Worksheet: React.FC<WorksheetProps> = ({
                   onChange={(e) => setTempName(e.target.value)}
                   onKeyDown={handleNameKeyPress}
                   onBlur={handleNameSave}
-                  className="text-3xl font-bold bg-transparent border-2 border-nt84orange focus:border-nt84orange"
+                  className="text-2xl lg:text-3xl font-bold bg-transparent border-2 border-nt84orange focus:border-nt84orange"
                   placeholder="Enter worksheet name..."
                   autoFocus
                 />
               </div>
             ) : (
               <div className="flex items-center gap-2 group">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white break-words">
                   {name || "Untitled Worksheet"}
                 </h1>
                 {!isReadOnly && (
@@ -171,7 +171,7 @@ const Worksheet: React.FC<WorksheetProps> = ({
                       setTempName(name || "");
                       setIsEditingName(true);
                     }}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded flex-shrink-0"
                     title="Edit worksheet name"
                   >
                     <FaEdit className="w-4 h-4 text-gray-500 hover:text-nt84orange" />
@@ -182,28 +182,30 @@ const Worksheet: React.FC<WorksheetProps> = ({
           </div>
 
           {/* Connection Status */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {/* Connection status indicator */}
             {wsConnectionState.status === 'connected' && (
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse flex-shrink-0"></div>
             )}
             {wsConnectionState.status === 'connecting' && (
-              <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+              <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse flex-shrink-0"></div>
             )}
             {wsConnectionState.status === 'disconnected' && (
-              <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+              <div className="w-2 h-2 bg-gray-400 rounded-full flex-shrink-0"></div>
             )}
             {wsConnectionState.status === 'error' && (
-              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+              <div className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0"></div>
             )}
             
             {/* Connection status text */}
-            <span className="text-sm text-gray-600 dark:text-gray-400">
+            <span className="text-sm text-gray-600 dark:text-gray-400 break-words">
               {wsConnectionState.status === 'connected' && 'Connected'}
               {wsConnectionState.status === 'connecting' && 'Connecting...'}
               {wsConnectionState.status === 'disconnected' && 'Disconnected'}
               {wsConnectionState.status === 'error' && 'Connection Error'}
-              {wsConnectionState.status === 'connected' && ' • Auto-save enabled'}
+              {wsConnectionState.status === 'connected' && (
+                <span className="hidden sm:inline"> • Auto-save enabled</span>
+              )}
             </span>
             
             {/* Saving indicator */}
@@ -216,7 +218,7 @@ const Worksheet: React.FC<WorksheetProps> = ({
         </div>
 
         {/* Right side: Action Buttons */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-shrink-0">
           <Share 
             readOnlyUrl={getReadOnlyUrl(conversionState)}
             fullAccessUrl={hasEditAccess(conversionState) ? getFullAccessUrl(conversionState) : undefined}

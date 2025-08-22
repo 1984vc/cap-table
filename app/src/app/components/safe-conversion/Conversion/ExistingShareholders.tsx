@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React from "react";
 import CurrencyInput from "react-currency-input-field";
 import { RowsProps } from "./PropTypes";
 import { FaRegTrashCan } from "react-icons/fa6";
@@ -21,7 +21,7 @@ interface ExistingShareholderRowProps {
   isReadOnly?: boolean;
 }
 
-const ExistingShareholderTableRow: React.FC<ExistingShareholderRowProps> = ({
+const ExistingShareholderRow: React.FC<ExistingShareholderRowProps> = ({
   data,
   onDelete,
   onUpdate,
@@ -29,19 +29,30 @@ const ExistingShareholderTableRow: React.FC<ExistingShareholderRowProps> = ({
   disableNameEdit,
   isReadOnly = false,
 }) => {
-  const [editingCell, setEditingCell] = useState<{
-    field: string;
-  } | null>(null);
-  const [editValue, setEditValue] = useState<string>('');
-  const [editNumericValue, setEditNumericValue] = useState<number | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    if (isReadOnly) return;
+    const { name, value } = e.target;
+    onUpdate({ ...data, [name]: value });
+  };
+
+  const onValueChange = (
+    value: string | undefined,
+    name: string | undefined
+  ) => {
+    if (isReadOnly) return;
+    if (name) {
+      onUpdate({ ...data, [name]: parseFloat(value ?? "0") });
+    }
+  };
 
   const ownership = data.ownershipPct ?? 0;
 
   const getTooltipButton = () => {
     if (data.id === "UnusedOptionsPool") {
       return (
-        <div className="inline-block text-nt84bluedarker dark:text-nt84lightblue ml-2">
+        <div className="inline-block text-nt84bluedarker dark:text-nt84lightblue">
           <QuestionMarkTooltipComponent>
             <div className="max-w-72">
               <p>
@@ -59,7 +70,7 @@ const ExistingShareholderTableRow: React.FC<ExistingShareholderRowProps> = ({
       );
     } else if (data.id === "IssuedOptions") {
       return (
-        <div className="inline-block text-nt84bluedarker dark:text-nt84lightblue ml-2">
+        <div className="inline-block text-nt84bluedarker dark:text-nt84lightblue">
           <QuestionMarkTooltipComponent>
             <div className="max-w-72">
               Options or shares already issued to other employees, advisors, or
@@ -72,163 +83,74 @@ const ExistingShareholderTableRow: React.FC<ExistingShareholderRowProps> = ({
     return null;
   };
 
-  // Start editing a cell
-  const startEditing = (field: string) => {
-    if (isReadOnly) return; // Don't allow editing in read-only mode
-    if (field === 'name' && disableNameEdit) return;
-    if (field === 'ownershipPct') return; // Ownership % is not editable
-    
-    let initialValue = '';
-    
-    if (field === 'shares') {
-      setEditNumericValue(data.shares || 0);
-    } else {
-      initialValue = (data[field as keyof ExistingShareholderProps] as string) || '';
-    }
-    
-    setEditingCell({ field });
-    setEditValue(initialValue);
-    
-    // Focus the input after it's rendered
-    setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
-    }, 0);
-  };
-
-  // Save edited value
-  const saveEdit = () => {
-    if (!editingCell) return;
-
-    const { field } = editingCell;
-    let valueToSave: string | number;
-
-    if (field === 'shares') {
-      valueToSave = editNumericValue || 0;
-      onUpdate({ ...data, shares: valueToSave });
-    } else {
-      valueToSave = editValue;
-      onUpdate({ ...data, [field]: valueToSave });
-    }
-
-    setEditingCell(null);
-  };
-
-  // Handle key press in editable cell
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      saveEdit();
-    } else if (e.key === 'Escape') {
-      setEditingCell(null);
-    }
-  };
-
-  // Focus the input when editing cell changes
-  useEffect(() => {
-    if (inputRef.current && editingCell) {
-      inputRef.current.focus();
-    }
-  }, [editingCell]);
-
-  // Render editable cell
-  const renderEditableCell = (field: string, currentValue: string | number | null | undefined) => {
-    const displayValue = currentValue === null || currentValue === undefined ? '' : String(currentValue);
-    const isEditing = editingCell?.field === field;
-    
-    if (isEditing) {
-      if (field === 'shares') {
-        return (
-          <CurrencyInput
-            ref={inputRef as React.RefObject<HTMLInputElement>}
-            value={editNumericValue || 0}
-            onValueChange={(value) => setEditNumericValue(parseFloat(value || '0'))}
-            onBlur={saveEdit}
-            onKeyDown={handleKeyPress}
-            placeholder="Shares"
-            className="w-full px-2 py-1 border rounded text-right bg-white dark:bg-gray-700 text-sm h-8"
-            prefix=""
-            decimalScale={0}
-            allowDecimals={false}
-            customInput={Input}
-          />
-        );
-      } else {
-        return (
-          <input
-            ref={inputRef}
-            type="text"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={saveEdit}
-            onKeyDown={handleKeyPress}
-            className="w-full px-2 py-1 border rounded bg-white dark:bg-gray-700 text-sm h-8"
-          />
-        );
-      }
-    }
-    
-    // Display value when not editing
-    const canEdit = !isReadOnly && !(field === 'name' && disableNameEdit) && field !== 'ownershipPct';
-    
-    return (
-      <div
-        onClick={() => canEdit && startEditing(field)}
-        className={`w-full px-2 py-1 rounded text-sm h-8 flex items-center ${field === 'shares' ? 'justify-end' : 'justify-start'} ${
-          canEdit 
-            ? 'bg-white dark:bg-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 border border-transparent hover:border-gray-300 dark:hover:border-gray-600' 
-            : 'bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
-        }`}
-      >
-        {field === 'ownershipPct' 
-          ? `${(ownership * 100).toFixed(2)}%`
-          : field === 'shares' && displayValue
-            ? parseInt(displayValue).toLocaleString()
-            : displayValue || (canEdit ? <span className="text-gray-400">Click to edit</span> : '')
-        }
-      </div>
-    );
-  };
-
   return (
-    <tr>
-      {/* Name */}
-      <td className="px-3 py-2 w-2/5 break-words">
-        <div className="flex items-center">
+    <div className="w-full max-w-full sm:max-w-[960px] mx-auto mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 relative">
+      {allowDelete && !isReadOnly && (
+        <Button
+          onClick={() => {
+            onDelete(data.id);
+          }}
+          variant="ghost"
+          className="p-0 text-red-400 hover:text-red-500 h-auto absolute top-3 right-1"
+        >
+          <FaRegTrashCan className="inline" width={20} />
+        </Button>
+      )}
+      <div className="flex flex-col md:flex-row md:items-center md:space-x-4">
+        <div className="mb-3 md:mb-0 md:flex-1">
           {disableNameEdit ? (
-            <div className="w-full px-2 py-1 rounded bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300 font-bold text-sm h-8 flex items-center">
-              {data.name}
+            <span className="ml-2 inline-block font-bold text-gray-900 dark:text-white">
+              {data.name} {getTooltipButton()}
+            </span>
+          ) : (
+            <div>
+              <div className="text-gray-500 dark:text-gray-400 mb-1">Name</div>
+              <Input
+                type="text"
+                name="name"
+                autoComplete="off"
+                value={data.name}
+                onChange={handleInputChange}
+                placeholder="Common Shareholder Name"
+                className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+                readOnly={isReadOnly}
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="mb-3 md:mb-0 md:flex-1">
+          <div className="text-gray-500 dark:text-gray-400 mb-1">Shares</div>
+          {isReadOnly ? (
+            <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded border border-gray-200 dark:border-gray-600">
+              {data.shares?.toLocaleString() || 0}
             </div>
           ) : (
-            renderEditableCell('name', data.name)
+            <CurrencyInput
+              type="text"
+              name="shares"
+              value={data.shares}
+              onValueChange={onValueChange}
+              placeholder="Shares"
+              className="w-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+              prefix=""
+              decimalScale={0}
+              allowDecimals={false}
+              customInput={Input}
+            />
           )}
-          {getTooltipButton()}
         </div>
-      </td>
-      
-      {/* Shares */}
-      <td className="px-3 py-2 w-1/4">
-        {renderEditableCell('shares', data.shares)}
-      </td>
-      
-      {/* Ownership % */}
-      <td className="px-3 py-2 w-1/5">
-        {renderEditableCell('ownershipPct', ownership)}
-      </td>
-      
-      {/* Actions */}
-      <td className="px-3 py-2 text-center w-1/6">
-        {allowDelete && (
-          <Button
-            onClick={() => onDelete(data.id)}
-            variant="ghost"
-            className="p-2 text-red-400 hover:text-red-500 h-auto"
-          >
-            <FaRegTrashCan className="w-4 h-4" />
-          </Button>
-        )}
-      </td>
-    </tr>
+
+        <div className="mb-3 md:mb-0 md:flex-1">
+          <div className="text-gray-500 dark:text-gray-400 mb-1">
+            Ownership %
+          </div>
+          <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded">
+            {(ownership * 100).toFixed(2)}%
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -247,85 +169,46 @@ const ExisingShareholderList: React.FC<RowsProps<ExistingShareholderProps>> = ({
   const issuedOptionsRow = rows.find((row) => row.id === "IssuedOptions");
   const unusedOptionsRow = rows.find((row) => row.id === "UnusedOptionsPool");
 
-  // Calculate totals
-  const totalShares = rows.reduce((sum, row) => sum + (row.shares || 0), 0);
-  const totalOwnership = rows.reduce((sum, row) => sum + (row.ownershipPct || 0), 0);
-
-  // Combine all rows for display
-  const allRows = [
-    ...existingShareholders,
-    ...(issuedOptionsRow ? [issuedOptionsRow] : []),
-    ...(unusedOptionsRow ? [unusedOptionsRow] : [])
-  ];
-
   return (
     <div className="w-full">
-      <div className="bg-white dark:bg-gray-800 shadow overflow-x-auto rounded-lg">
-        <table className="min-w-full table-fixed divide-y divide-gray-200 dark:divide-gray-600">
-          <thead className="bg-gray-50 dark:bg-gray-700">
-            <tr>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-2/5">
-                <div className="flex items-center justify-between">
-                  <span>Shareholder</span>
-                  {!isReadOnly && (
-                    <Button
-                      onClick={onAddRow}
-                      variant="ghost"
-                      className="ml-2 p-1 text-blue-500 hover:text-blue-700 h-auto"
-                      title="Add new shareholder"
-                    >
-                      +
-                    </Button>
-                  )}
-                </div>
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-1/4">
-                Shares
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-1/5">
-                Ownership %
-              </th>
-              <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-1/6">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-gray-100 dark:bg-gray-700 divide-y divide-gray-200 dark:divide-gray-600">
-            {allRows.map((shareholder, idx) => (
-              <ExistingShareholderTableRow
-                key={shareholder.id || idx}
-                data={shareholder}
-                onUpdate={onUpdate}
-                onDelete={onDelete}
-                allowDelete={!isReadOnly && existingShareholders.length > 1 && existingShareholders.includes(shareholder)}
-                disableNameEdit={["UnusedOptionsPool", "IssuedOptions"].includes(shareholder.id)}
-                isReadOnly={isReadOnly}
-              />
-            ))}
-            
-            {/* Total Row */}
-            <tr className="bg-gray-100 dark:bg-gray-600 font-bold">
-              <td className="px-3 py-2 text-gray-900 dark:text-white w-2/5">
-                Total
-              </td>
-              <td className="px-3 py-2 text-right text-gray-900 dark:text-white w-1/4">
-                {totalShares.toLocaleString()}
-              </td>
-              <td className="px-3 py-2 text-gray-900 dark:text-white w-1/5">
-                {(totalOwnership * 100).toFixed(2)}%
-              </td>
-              <td className="px-3 py-2 w-1/6"></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      
-      {/* Add new row button at bottom */}
+      {existingShareholders.map((shareholder, idx) => (
+        <ExistingShareholderRow
+          key={idx}
+          data={shareholder}
+          onUpdate={onUpdate}
+          onDelete={onDelete}
+          allowDelete={rows.length > 1}
+          isReadOnly={isReadOnly}
+        />
+      ))}
+
+      {issuedOptionsRow && (
+        <ExistingShareholderRow
+          data={issuedOptionsRow}
+          onUpdate={onUpdate}
+          onDelete={() => {}}
+          allowDelete={false}
+          disableNameEdit={true}
+          isReadOnly={isReadOnly}
+        />
+      )}
+
+      {unusedOptionsRow && (
+        <ExistingShareholderRow
+          data={unusedOptionsRow}
+          onUpdate={onUpdate}
+          onDelete={() => {}}
+          allowDelete={false}
+          disableNameEdit={true}
+          isReadOnly={isReadOnly}
+        />
+      )}
+
       {!isReadOnly && (
-        <div className="flex justify-center mt-4">
+        <div className="w-full max-w-full sm:max-w-[960px] mx-auto">
           <Button
             onClick={onAddRow}
-            className="bg-nt84blue hover:bg-nt84bluedarker dark:text-white"
+            className="w-full bg-nt84blue hover:bg-nt84bluedarker dark:text-white"
           >
             + Add another Shareholder
           </Button>

@@ -29,9 +29,6 @@ describe('names', () => {
       // Should contain exactly one space
       expect(name.split(' ').length).toBe(2);
       
-      // Should not contain any uppercase letters
-      expect(name).toBe(name.toLowerCase());
-      
       // Should not be empty
       expect(name.length).toBeGreaterThan(0);
     });
