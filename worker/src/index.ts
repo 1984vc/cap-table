@@ -668,69 +668,34 @@ interface CalculateRequest {
 	preMoneyValuation: number;
 	targetOptionsPool: number;
 	shareholders: Array<{ name: string; shares: number }>;
-	unusedOptions: number;
-	safes: Array<{
+	unusedOptions?: number;
+	safes?: Array<{
 		name: string;
 		investment: number;
 		cap: number;
 		discount: number;
 		type: "pre" | "post";
 	}>;
-	seriesInvestment: Array<{ name: string; investment: number }>;
+	seriesInvestment?: Array<{ name: string; investment: number }>;
 }
 
-async function handleCalculate(request: Request): Promise<Response> {
-	const corsHeaders = {
-		"Access-Control-Allow-Origin": "*",
-		"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-		"Access-Control-Allow-Headers": "Content-Type",
-	};
+type CalculateResult =
+	| { success: true; result: { pricePerShare: number; totalShares: number; postMoneyValuation: number; capTable: Array<{ name: string; type: string; shares: number; ownershipPercent: number; investment?: number; pps?: number }>; summary: { totalInvestment: number; founderDilution: number; optionsPoolPercent: number } } }
+	| { success: false; error: string };
+
+function runCapTableCalculation(requestData: CalculateRequest): CalculateResult {
+	if (typeof requestData?.preMoneyValuation !== 'number' || requestData.preMoneyValuation <= 0) {
+		return { success: false, error: "preMoneyValuation must be a positive number" };
+	}
+	if (!Array.isArray(requestData.shareholders) || requestData.shareholders.length === 0) {
+		return { success: false, error: "shareholders must be a non-empty array" };
+	}
 
 	try {
-		const body = await request.text();
-		let requestData: CalculateRequest;
-
-		try {
-			requestData = JSON.parse(body);
-		} catch {
-			return new Response(JSON.stringify({
-				success: false,
-				error: "Invalid JSON in request body"
-			}), {
-				status: 400,
-				headers: { ...corsHeaders, "Content-Type": "application/json" }
-			});
-		}
-
-		// Validate required fields
-		if (typeof requestData.preMoneyValuation !== 'number' || requestData.preMoneyValuation <= 0) {
-			return new Response(JSON.stringify({
-				success: false,
-				error: "preMoneyValuation must be a positive number"
-			}), {
-				status: 400,
-				headers: { ...corsHeaders, "Content-Type": "application/json" }
-			});
-		}
-
-		if (!Array.isArray(requestData.shareholders) || requestData.shareholders.length === 0) {
-			return new Response(JSON.stringify({
-				success: false,
-				error: "shareholders must be a non-empty array"
-			}), {
-				status: 400,
-				headers: { ...corsHeaders, "Content-Type": "application/json" }
-			});
-		}
-
-		// Convert target options pool from percentage (e.g., 10 for 10%) to decimal
 		const targetOptionsPct = (requestData.targetOptionsPool || 0) / 100;
 		const unusedOptions = requestData.unusedOptions || 0;
-
-		// Build stakeholders array
 		const stakeHolders: StakeHolder[] = [];
 
-		// Add common shareholders
 		let totalCommonShares = 0;
 		for (const shareholder of requestData.shareholders) {
 			stakeHolders.push({
@@ -742,7 +707,6 @@ async function handleCalculate(request: Request): Promise<Response> {
 			totalCommonShares += shareholder.shares;
 		}
 
-		// Add unused options as a special common stockholder if > 0
 		if (unusedOptions > 0) {
 			stakeHolders.push({
 				name: "Unused Options",
@@ -752,24 +716,20 @@ async function handleCalculate(request: Request): Promise<Response> {
 			} as CommonStockholder);
 		}
 
-		// Add SAFEs
 		const safes: SAFENote[] = (requestData.safes || []).map((safe) => ({
 			name: safe.name,
 			investment: safe.investment,
 			cap: safe.cap,
-			discount: (safe.discount || 0) / 100, // Convert percentage to decimal
+			discount: (safe.discount || 0) / 100,
 			type: CapTableRowType.Safe,
 			conversionType: safe.type === "pre" ? "pre" : "post",
 		} as SAFENote));
 
-		// Populate MFN caps if any
 		const processedSafes = populateSafeCaps(safes);
-
 		for (const safe of processedSafes) {
 			stakeHolders.push(safe);
 		}
 
-		// Add series investors
 		const seriesInvestments: number[] = [];
 		for (const investor of requestData.seriesInvestment || []) {
 			stakeHolders.push({
@@ -781,7 +741,6 @@ async function handleCalculate(request: Request): Promise<Response> {
 			seriesInvestments.push(investor.investment);
 		}
 
-		// Run the conversion calculation
 		const conversion = fitConversion(
 			requestData.preMoneyValuation,
 			totalCommonShares,
@@ -791,17 +750,13 @@ async function handleCalculate(request: Request): Promise<Response> {
 			seriesInvestments
 		);
 
-		// Build the cap table
 		const capTable = buildPricedRoundCapTable(conversion, stakeHolders);
 
-		// Format response
 		const totalSeriesInvestment = seriesInvestments.reduce((a, b) => a + b, 0);
 		const totalSafeInvestment = processedSafes.reduce((a, s) => a + s.investment, 0);
-
-		// Calculate founder dilution (original common shares / total shares)
 		const founderDilution = (1 - (totalCommonShares / conversion.totalShares)) * 100;
 
-		const response = {
+		return {
 			success: true,
 			result: {
 				pricePerShare: conversion.pps,
@@ -809,21 +764,21 @@ async function handleCalculate(request: Request): Promise<Response> {
 				postMoneyValuation: requestData.preMoneyValuation + totalSeriesInvestment,
 				capTable: [
 					...capTable.common.map(row => ({
-						name: row.name,
+						name: row.name || '',
 						type: "common",
 						shares: row.shares,
 						ownershipPercent: (row.ownershipPct || 0) * 100,
 					})),
 					...capTable.safes.map(row => ({
-						name: row.name,
+						name: row.name || '',
 						type: "safe",
-						shares: row.shares,
+						shares: row.shares || 0,
 						ownershipPercent: (row.ownershipPct || 0) * 100,
 						investment: row.investment,
 						pps: row.pps,
 					})),
 					...capTable.series.map(row => ({
-						name: row.name,
+						name: row.name || '',
 						type: "series",
 						shares: row.shares,
 						ownershipPercent: row.ownershipPct * 100,
@@ -831,9 +786,9 @@ async function handleCalculate(request: Request): Promise<Response> {
 						pps: row.pps,
 					})),
 					{
-						name: capTable.refreshedOptionsPool.name,
+						name: capTable.refreshedOptionsPool.name || '',
 						type: "options",
-						shares: capTable.refreshedOptionsPool.shares,
+						shares: capTable.refreshedOptionsPool.shares || 0,
 						ownershipPercent: capTable.refreshedOptionsPool.ownershipPct * 100,
 					},
 				],
@@ -844,21 +799,176 @@ async function handleCalculate(request: Request): Promise<Response> {
 				},
 			},
 		};
+	} catch (error) {
+		return { success: false, error: error instanceof Error ? error.message : "Calculation failed" };
+	}
+}
 
-		return new Response(JSON.stringify(response, null, 2), {
-			status: 200,
+async function handleCalculate(request: Request): Promise<Response> {
+	const corsHeaders = {
+		"Access-Control-Allow-Origin": "*",
+		"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+		"Access-Control-Allow-Headers": "Content-Type",
+	};
+
+	try {
+		let requestData: CalculateRequest;
+		try {
+			requestData = JSON.parse(await request.text());
+		} catch {
+			return new Response(JSON.stringify({ success: false, error: "Invalid JSON in request body" }), {
+				status: 400,
+				headers: { ...corsHeaders, "Content-Type": "application/json" }
+			});
+		}
+
+		const result = runCapTableCalculation(requestData);
+		return new Response(JSON.stringify(result, null, 2), {
+			status: result.success ? 200 : 400,
 			headers: { ...corsHeaders, "Content-Type": "application/json" }
 		});
-
 	} catch (error) {
 		console.error("Error in calculate handler:", error);
-		return new Response(JSON.stringify({
-			success: false,
-			error: error instanceof Error ? error.message : "Internal server error"
-		}), {
+		return new Response(JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Internal server error" }), {
 			status: 500,
 			headers: { ...corsHeaders, "Content-Type": "application/json" }
 		});
+	}
+}
+
+// MCP Streamable HTTP transport (2025-03-26 spec)
+interface JsonRpcRequest {
+	jsonrpc: "2.0";
+	id?: string | number;
+	method: string;
+	params?: unknown;
+}
+
+interface JsonRpcResponse {
+	jsonrpc: "2.0";
+	id: string | number | null;
+	result?: unknown;
+	error?: { code: number; message: string };
+}
+
+function mcpOk(id: string | number | null, result: unknown): string {
+	return JSON.stringify({ jsonrpc: "2.0", id, result } satisfies JsonRpcResponse);
+}
+
+function mcpErr(id: string | number | null, code: number, message: string): string {
+	return JSON.stringify({ jsonrpc: "2.0", id, error: { code, message } } satisfies JsonRpcResponse);
+}
+
+const MCP_TOOL = {
+	name: "calculate_cap_table",
+	description: "Calculate a startup cap table for a funding round. Returns share counts, ownership percentages, price per share, and summary metrics for all stakeholders — common shareholders, SAFE holders, series investors, and the options pool.",
+	inputSchema: {
+		type: "object",
+		properties: {
+			preMoneyValuation: { type: "number", description: "Pre-money valuation in dollars" },
+			targetOptionsPool: { type: "number", description: "Target options pool as a percentage of post-money shares (e.g. 10 for 10%)" },
+			shareholders: {
+				type: "array",
+				description: "Existing common stockholders",
+				items: {
+					type: "object",
+					properties: {
+						name: { type: "string" },
+						shares: { type: "number" },
+					},
+					required: ["name", "shares"],
+				},
+			},
+			unusedOptions: { type: "number", description: "Existing unused options in the pool (default: 0)" },
+			safes: {
+				type: "array",
+				description: "SAFE notes to convert in this round (default: [])",
+				items: {
+					type: "object",
+					properties: {
+						name: { type: "string" },
+						investment: { type: "number", description: "Investment amount in dollars" },
+						cap: { type: "number", description: "Valuation cap in dollars (0 for uncapped)" },
+						discount: { type: "number", description: "Discount rate as a percentage (e.g. 20 for 20%, 0 for none)" },
+						type: { type: "string", enum: ["pre", "post"], description: "Pre-money or post-money SAFE" },
+					},
+					required: ["name", "investment", "cap", "discount", "type"],
+				},
+			},
+			seriesInvestment: {
+				type: "array",
+				description: "New series investors in this priced round (default: [])",
+				items: {
+					type: "object",
+					properties: {
+						name: { type: "string" },
+						investment: { type: "number", description: "Investment amount in dollars" },
+					},
+					required: ["name", "investment"],
+				},
+			},
+		},
+		required: ["preMoneyValuation", "targetOptionsPool", "shareholders"],
+	},
+};
+
+async function handleMcp(request: Request): Promise<Response> {
+	const corsHeaders = {
+		"Access-Control-Allow-Origin": "*",
+		"Access-Control-Allow-Methods": "POST, OPTIONS",
+		"Access-Control-Allow-Headers": "Content-Type",
+	};
+
+	let rpc: JsonRpcRequest;
+	try {
+		rpc = JSON.parse(await request.text());
+	} catch {
+		return new Response(mcpErr(null, -32700, "Parse error"), {
+			status: 400,
+			headers: { ...corsHeaders, "Content-Type": "application/json" },
+		});
+	}
+
+	const id = rpc.id ?? null;
+	const isNotification = rpc.id === undefined;
+
+	switch (rpc.method) {
+		case "initialize":
+			return new Response(mcpOk(id, {
+				protocolVersion: "2025-03-26",
+				capabilities: { tools: {} },
+				serverInfo: { name: "startup-finance", version: "1.0.0" },
+			}), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+		case "notifications/initialized":
+			return new Response(null, { status: 202, headers: corsHeaders });
+
+		case "tools/list":
+			return new Response(mcpOk(id, { tools: [MCP_TOOL] }), {
+				headers: { ...corsHeaders, "Content-Type": "application/json" },
+			});
+
+		case "tools/call": {
+			const params = rpc.params as { name?: string; arguments?: unknown };
+			if (params?.name !== "calculate_cap_table") {
+				return new Response(mcpOk(id, {
+					content: [{ type: "text", text: `Unknown tool: ${params?.name}` }],
+					isError: true,
+				}), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+			}
+			const calcResult = runCapTableCalculation(params.arguments as CalculateRequest);
+			return new Response(mcpOk(id, {
+				content: [{ type: "text", text: JSON.stringify(calcResult, null, 2) }],
+			}), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+		}
+
+		default:
+			if (isNotification) {
+				return new Response(null, { status: 202, headers: corsHeaders });
+			}
+			return new Response(mcpErr(id, -32601, "Method not found"), {
+				headers: { ...corsHeaders, "Content-Type": "application/json" },
+			});
 	}
 }
 
@@ -878,6 +988,11 @@ export default {
 		// Handle legacy conversion endpoint
 		if (url.pathname === "/api/legacy/convert" && request.method === "POST") {
 			return handleLegacyConversion(request, env);
+		}
+
+		// Handle MCP endpoint (Streamable HTTP, 2025-03-26)
+		if (url.pathname === "/mcp" && request.method === "POST") {
+			return handleMcp(request);
 		}
 
 		// Handle calculate endpoint
