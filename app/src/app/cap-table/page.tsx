@@ -129,7 +129,7 @@ const Page: React.FC = () => {
               founders model their SAFE and priced rounds. The module is
               available on{" "}
               <a
-                href="https://github.com/1984vc/startup-finance"
+                href="https://github.com/1984vc/cap-table"
                 target="_blank"
                 rel="noopener"
                 className="text-nt84orange hover:text-nt84orangedarker underline font-medium"
