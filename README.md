@@ -1,203 +1,280 @@
-# Startup Finance - Development Setup
+# @1984vc/cap-table
 
-This project consists of a React app (`app/`) and a Cloudflare Worker (`worker/`) that work together to provide a startup finance calculator with real-time collaboration features.
+TypeScript library for modeling startup cap table ownership across funding events — SAFE note conversions, priced rounds, option pools, and dilution.
 
-## Development Modes
+Used by the [1984 Ventures Cap Table Worksheet](https://startup-finance.1984.vc/), a free web tool for founders.
 
-### 1. Local Development Mode (Recommended)
-Both app and worker run locally with full Miniflare emulation - **no Cloudflare account required**.
-
-```bash
-pnpm run dev:local
-```
-
-This runs:
-- App on `http://localhost:5173` (connects to local worker)
-- Worker on `http://localhost:8787` (using Miniflare)
-- Local SQLite database with full persistence
-- Durable Objects emulation for WebSocket support
-
-### 2. Cloud Development Mode
-The app connects to the deployed Cloudflare Worker in production.
+## Install
 
 ```bash
-pnpm run dev:cloud
+npm install @1984vc/cap-table
 ```
 
-This runs:
-- App on `http://localhost:5173` (connects to production worker)
-- Worker locally on `http://localhost:8787` (requires Cloudflare account)
+## Quick Start
 
-## Environment Configuration
+```typescript
+import {
+  fitConversion,
+  buildPricedRoundCapTable,
+  CapTableRowType,
+  CommonRowType,
+} from "@1984vc/cap-table";
 
-The app automatically detects the environment and configures the backend URL:
+// 1. Define your current shareholders
+const founders = [
+  { name: "Founder 1", shares: 4_500_000, type: CapTableRowType.Common, commonType: CommonRowType.Shareholder },
+  { name: "Founder 2", shares: 4_500_000, type: CapTableRowType.Common, commonType: CommonRowType.Shareholder },
+  { name: "Options Pool", shares: 1_000_000, type: CapTableRowType.Common, commonType: CommonRowType.UnusedOptions },
+];
 
-- **Production builds**: Always use the deployed Cloudflare Worker
-- **Development mode**: Use production worker by default
-- **Local development**: Set `VITE_USE_LOCAL_WORKER=true` to use local worker
+// 2. Define outstanding SAFEs
+const safes = [
+  { name: "Seed SAFE", investment: 1_000_000, cap: 10_000_000, discount: 0, conversionType: "post", type: CapTableRowType.Safe },
+];
 
-### Environment Variables
+// 3. Solve for share counts at a priced Series A
+const conversion = fitConversion(
+  12_000_000,   // pre-money valuation
+  9_000_000,    // total common shares (founders + issued options)
+  safes,
+  1_000_000,    // unused options
+  0.10,         // target options pool percentage post-round
+  [2_000_000],  // series A investment amounts
+);
 
-- `VITE_BACKEND_URL`: Override backend URL (optional)
-- `VITE_USE_LOCAL_WORKER`: Set to `true` to use localhost:8787 in development
-
-### Worker Configuration
-
-The worker is configured via `worker/wrangler.jsonc` and includes:
-- Durable Objects for real-time state management
-- Static asset serving for the built app
-- WebSocket support for real-time collaboration
-
-## Project Structure
-
+// 4. Build the full cap table
+const { common, safes: safeRows, series, refreshedOptionsPool, total } =
+  buildPricedRoundCapTable(conversion, [...founders, ...safes, {
+    name: "Lead Investor",
+    investment: 2_000_000,
+    type: CapTableRowType.Series,
+    round: 0,
+  }]);
 ```
-├── app/                    # React frontend
-│   ├── src/
-│   │   ├── app/           # Main app components
-│   │   └── library/       # Shared calculation library
-│   ├── vite.config.ts     # Vite config with proxy setup
-│   └── package.json
-├── worker/                # Cloudflare Worker backend
-│   ├── src/
-│   ├── public/           # Built app assets (from app build)
-│   ├── wrangler.jsonc    # Worker configuration
-│   └── package.json
-└── package.json          # Root package with dev scripts
+
+## Concepts
+
+### SAFE Conversion Types
+
+| `conversionType` | Description |
+|---|---|
+| `"pre"` | Pre-money SAFE — converts on pre-money valuation |
+| `"post"` | Post-money SAFE — converts on post-money (YC standard) |
+| `"mfn"` | MFN (Most Favored Nation) — no cap, gets lowest subsequent cap |
+| `"yc7p"` | YC 7% post-money — guarantees 7% ownership |
+| `"ycmfn"` | YC MFN variant (legacy) |
+
+### MFN Side Letters
+
+SAFEs with `sideLetters: ["mfn"]` automatically receive the lowest cap of any subsequent capped SAFE via `populateSafeCaps()`.
+
+### Rounding
+
+Share counts and price-per-share (PPS) are rounded to match legal standards. The default strategy floors shares and rounds PPS to 5 decimal places. Override via `RoundingStrategy`:
+
+```typescript
+const strategy = {
+  roundDownShares: true,   // floor shares (default)
+  roundPPSPlaces: 5,       // PPS decimal places (default)
+};
 ```
 
-## Development Workflow
+### Ownership Errors
 
-### Initial Setup
+Some rows can't be fully calculated and are flagged rather than crashed:
+
+- **`"tbd"`** — Needs more info (e.g. uncapped SAFE before a priced round)
+- **`"caveat"`** — Calculated with assumptions (e.g. MFN cap assigned)
+- **`"error"`** — Invalid input (e.g. investment ≥ cap)
+
+## API Reference
+
+### Cap Table Builders
+
+#### `buildExistingShareholderCapTable(stockholders)`
+
+Calculates ownership percentages for existing shareholders with no round.
+
+```typescript
+import { buildExistingShareholderCapTable } from "@1984vc/cap-table";
+
+const rows = buildExistingShareholderCapTable(founders);
+// rows[0].ownershipPct === 0.45
+```
+
+---
+
+#### `buildEstimatedPreRoundCapTable(stakeHolders, roundingStrategy?)`
+
+Estimates SAFE ownership before a priced round is known. Marks uncapped SAFEs as `"tbd"`.
+
+```typescript
+const { common, safes, total } = buildEstimatedPreRoundCapTable([
+  ...founders,
+  ...safes,
+]);
+```
+
+Returns `{ common: CommonCapTableRow[], safes: SafeCapTableRow[], total: TotalCapTableRow }`.
+
+---
+
+#### `buildPreRoundCapTable(pricedConversion, stakeHolders)`
+
+Builds the pre-round view using a solved `BestFit` from `fitConversion()`.
+
+```typescript
+const { common, safes, total } = buildPreRoundCapTable(conversion, stakeHolders);
+```
+
+---
+
+#### `buildPricedRoundCapTable(pricedConversion, stakeHolders)`
+
+Builds the full cap table including the new priced round and refreshed options pool.
+
+```typescript
+const { common, safes, series, refreshedOptionsPool, total, error } =
+  buildPricedRoundCapTable(conversion, stakeHolders);
+```
+
+---
+
+### Conversion Solver
+
+#### `fitConversion(preMoneyValuation, commonShares, safes, unusedOptions, targetOptionsPct, seriesInvestments, roundingStrategy?)`
+
+Iteratively solves for share counts at a priced round, accounting for SAFE conversions and option pool refresh.
+
+```typescript
+const conversion = fitConversion(
+  12_000_000,   // pre-money valuation
+  9_000_000,    // common shares outstanding (excluding unused options)
+  safes,        // SAFENote[]
+  1_000_000,    // unused options
+  0.10,         // target option pool % post-round
+  [2_000_000],  // one entry per series investor (or total)
+);
+```
+
+Returns a `BestFit` object:
+
+```typescript
+{
+  pps: number               // series round price per share
+  ppss: number[]            // per-SAFE conversion price
+  convertedSafeShares: number
+  seriesShares: number
+  preMoneyShares: number    // fully diluted pre-money share count
+  postMoneyShares: number
+  newSharesIssued: number
+  totalShares: number
+  additionalOptions: number // new options beyond existing pool
+  totalOptions: number
+  totalInvested: number
+  totalSeriesInvestment: number
+  roundingStrategy: RoundingStrategy
+}
+```
+
+---
+
+### SAFE Utilities
+
+#### `populateSafeCaps(safeNotes)`
+
+Applies MFN logic — assigns each uncapped MFN SAFE the lowest cap from subsequent capped SAFEs.
+
+```typescript
+const processedSafes = populateSafeCaps(rawSafes);
+```
+
+#### `safeConvert(safe, preShares, postShares, pps)`
+
+Returns the effective conversion price per share for a single SAFE.
+
+#### `checkSafeNotesForErrors(safeNotes)`
+
+Validates SAFE inputs. Returns a `CapTableOwnershipError` or `undefined`.
+
+---
+
+### Number Formatting
+
+```typescript
+import { stringToNumber, formatUSDWithCommas, shortenedUSD } from "@1984vc/cap-table";
+
+stringToNumber("$1.5M")          // → 1_500_000
+stringToNumber("1,000,000")      // → 1_000_000
+formatUSDWithCommas(1_234_567)   // → "$1,234,567"
+shortenedUSD(1_500_000)          // → "$1.5M"
+shortenedUSD(50_000)             // → "$50K"
+```
+
+---
+
+## Type Reference
+
+### Input Types
+
+```typescript
+type CommonStockholder = {
+  id?: string;
+  name: string;
+  shares: number;
+  type: CapTableRowType.Common;
+  commonType: CommonRowType.Shareholder | CommonRowType.UnusedOptions;
+};
+
+type SAFENote = {
+  id?: string;
+  name?: string;
+  investment: number;
+  cap: number;
+  discount: number;
+  type: CapTableRowType.Safe;
+  conversionType: "pre" | "post" | "mfn" | "yc7p" | "ycmfn";
+  sideLetters?: ("mfn" | "pro-rata")[];
+};
+
+type SeriesInvestor = {
+  id?: string;
+  name?: string;
+  investment: number;
+  type: CapTableRowType.Series;
+  round: number; // 0-indexed round number
+};
+
+type StakeHolder = CommonStockholder | SAFENote | SeriesInvestor;
+```
+
+### Enums
+
+```typescript
+enum CapTableRowType {
+  Common = "common",
+  Safe = "safe",
+  Series = "series",
+  Total = "total",
+  RefreshedOptions = "refreshedOptions",
+}
+
+enum CommonRowType {
+  Shareholder = "shareholder",
+  UnusedOptions = "unusedOptions",
+}
+```
+
+---
+
+## Development
+
 ```bash
-npm run install:all
+npm install
+npm run build      # tsup → dist/
+npm test           # vitest
 ```
 
-### Development Commands
+## License
 
-| Command | Description |
-|---------|-------------|
-| `pnpm run dev` | Local mode - both app and worker run locally (Miniflare) |
-| `pnpm run dev:local` | Same as above - full local development |
-| `pnpm run dev:cloud` | Cloud mode - app connects to deployed worker |
-| `pnpm run dev:staging` | Frontend-only development against staging backend |
-| `pnpm run dev:production` | Frontend-only development against production backend |
-| `pnpm run setup:local` | Initialize local database for Miniflare |
-| `pnpm run install:all` | Install dependencies for all packages |
-| `pnpm run build` | Build app for production |
-| `pnpm run build:staging` | Build app for staging environment |
-| `pnpm run build:production` | Build app for production environment |
-| `pnpm run build:local` | Build app for local development |
-| `pnpm run clean` | Clean all node_modules and local data |
-
-### Worker-specific Commands
-
-| Command | Description |
-|---------|-------------|
-| `cd worker && pnpm run dev:local` | Start worker with Miniflare |
-| `cd worker && pnpm run dev:miniflare` | Start worker with wrangler local mode |
-| `cd worker && pnpm run dev` | Start worker with Cloudflare (requires account) |
-| `cd worker && pnpm run db:init` | Initialize local SQLite database |
-
-### Switching Between Modes
-
-**To use production worker:**
-```bash
-npm run dev
-```
-
-**To use local worker:**
-```bash
-npm run dev:local
-```
-
-The local mode automatically sets `VITE_USE_LOCAL_WORKER=true` to configure the app to use `http://localhost:8787`.
-
-## API Proxy Configuration
-
-The Vite dev server is configured with a proxy that forwards `/api/*` requests to the worker:
-- In production mode: requests go to the deployed worker
-- In local mode: requests go to `http://localhost:8787`
-
-This eliminates CORS issues during development.
-
-## Local Development with Miniflare
-
-The project uses Miniflare for local development, providing a complete Cloudflare Workers environment without requiring a Cloudflare account.
-
-### Features Supported Locally
-
-✅ **Full API compatibility** - All endpoints work exactly like production  
-✅ **WebSocket connections** - Real-time updates via Durable Objects  
-✅ **Database persistence** - SQLite-based D1 emulation  
-✅ **Static asset serving** - Serves the React app  
-✅ **Hot reloading** - Automatic restart on code changes  
-
-### Local Storage
-
-Miniflare stores data locally in `worker/.miniflare/`:
-- `.miniflare/d1/` - SQLite database files
-- `.miniflare/durable-objects/` - Durable Object state  
-- `.miniflare/cache/` - Cache API data
-
-This directory is gitignored and persists between restarts.
-
-### Troubleshooting Local Development
-
-**Database Issues:**
-```bash
-cd worker && rm -rf .miniflare/d1 && pnpm run db:init
-```
-
-**Port Conflicts:**
-Modify the port in `worker/miniflare.config.js` if 8787 is in use.
-
-## WebSocket Support
-
-The app supports real-time collaboration via WebSockets:
-- Production: `wss://your-worker.workers.dev`
-- Local: `ws://localhost:8787`
-
-The backend service automatically handles the protocol switching based on the configured backend URL.
-
-## Testing
-
-Run tests for the app:
-```bash
-cd app && npm test
-```
-
-## Deployment
-
-### Manual Deployment
-
-Deploy the worker to Cloudflare:
-```bash
-npm run build:worker
-```
-
-Build the app for production:
-```bash
-npm run build:app
-```
-
-The built app is automatically placed in `worker/public/` and served by the worker.
-
-### GitHub Actions Deployment
-
-The project includes automated deployment via GitHub Actions (`.github/workflows/deploy-cloudflare.yml`):
-
-1. **Triggers**: Pushes to `main` branch and pull requests
-2. **Process**:
-   - Builds the React app using `pnpm`
-   - Installs worker dependencies using `npm`
-   - Deploys to Cloudflare Workers using `wrangler`
-
-**Required GitHub Secrets:**
-- `CLOUDFLARE_API_TOKEN`: Your Cloudflare API token with Workers:Edit permissions
-
-**Setup Instructions:**
-1. Generate a Cloudflare API token at https://dash.cloudflare.com/profile/api-tokens
-2. Add the token as `CLOUDFLARE_API_TOKEN` in your GitHub repository secrets
-3. Push to `main` branch to trigger deployment
-
-The worker will serve the React app from the root path (`/`) while maintaining API routes at `/api/objects/*`.
+MIT — [1984 Ventures](https://1984.vc)
