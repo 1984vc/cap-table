@@ -1,5 +1,5 @@
-import { formatNumberWithCommas } from "@library/utils/numberFormatting";
-import { BestFit } from "@library/conversion-solver";
+import { formatNumberWithCommas } from "@1984vc/cap-table";
+import { BestFit } from "@1984vc/cap-table";
 import {
   Card,
   CardContent,
@@ -7,7 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import QuestionMarkTooltipComponent from "@/components/tooltip/QuestionMarkTooltip";
-import { CapTableOwnershipError } from "@library/cap-table/types";
+import { CapTableOwnershipError } from "@1984vc/cap-table";
 
 import { FaMinus, FaPlus } from "react-icons/fa";
 

@@ -4,7 +4,7 @@ import { CurrencyInputOnChangeValues } from "react-currency-input-field";
 import { SeriesProps } from "@/components/safe-conversion/Conversion/SeriesInvestorList";
 import { SAFEProps } from "@/components/safe-conversion/Conversion/SafeNoteList";
 import { ExistingShareholderProps } from "@/components/safe-conversion/Conversion/ExistingShareholders";
-import { CapTableRowType, CommonRowType } from "@library/cap-table/types";
+import { CapTableRowType, CommonRowType } from "@1984vc/cap-table";
 
 // Only the state that we need to serialize
 export type ExistingShareholderState = Pick<

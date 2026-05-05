@@ -1,5 +1,5 @@
-import { formatNumberWithCommas } from "@library/utils/numberFormatting";
-import { CapTableRow, CapTableRowType, TotalCapTableRow } from "@library/cap-table/types";
+import { formatNumberWithCommas } from "@1984vc/cap-table";
+import { CapTableRow, CapTableRowType, TotalCapTableRow } from "@1984vc/cap-table";
 
 export type CapTableProps = {
   rows: CapTableRow[];

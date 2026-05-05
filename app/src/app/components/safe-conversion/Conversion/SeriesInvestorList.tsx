@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RowsProps } from "./PropTypes";
 import { FaRegTrashCan } from "react-icons/fa6";
-import { SeriesCapTableRow } from "@library/cap-table/types";
+import { SeriesCapTableRow } from "@1984vc/cap-table";
 
 export type SeriesProps = SeriesCapTableRow & {
   id: string;

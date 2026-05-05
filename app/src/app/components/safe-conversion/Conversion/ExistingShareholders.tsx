@@ -5,7 +5,7 @@ import { FaRegTrashCan } from "react-icons/fa6";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import QuestionMarkTooltipComponent from "@/components/tooltip/QuestionMarkTooltip";
-import { CommonCapTableRow } from "@library/cap-table/types";
+import { CommonCapTableRow } from "@1984vc/cap-table";
 
 export type ExistingShareholderProps = CommonCapTableRow & {
   // We need to ensure we can identify the row when updating or deleting

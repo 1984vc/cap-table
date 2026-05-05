@@ -17,6 +17,7 @@
     "test": "pnpm jest --maxWorkers=1 --maxConcurrency=1"
   },
   "dependencies": {
+    "@1984vc/cap-table": "^0.1.0",
     "@google/clasp": "3.0.1-alpha1",
     "@jest/globals": "^29.7.0",
     "@radix-ui/react-select": "^2.1.6",

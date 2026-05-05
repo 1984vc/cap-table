@@ -5,7 +5,7 @@ import {
 } from "@/cap-table/state/ConversionState";
 import fixtureData from "../../__tests__/fixtures/state_fixtures.json";
 import { getPricedRoundCapTableSelector } from "../PricedRoundSelector";
-import { CapTableRowType } from "@library/cap-table/types";
+import { CapTableRowType } from "@1984vc/cap-table";
 
 // Test our Result Selector, which handles both showing the resulting cap table and allow users to play around with the pre-money and investment changes
 describe("Result Selector", () => {

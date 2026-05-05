@@ -29,6 +29,7 @@
 		"wrangler": "^4.21.2"
 	},
 	"dependencies": {
+		"@1984vc/cap-table": "^0.1.0",
 		"lz-string": "^1.5.0"
 	}
 }

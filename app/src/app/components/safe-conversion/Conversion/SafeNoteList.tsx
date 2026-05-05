@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { formatNumberWithCommas } from "@library/utils/numberFormatting";
+import { formatNumberWithCommas } from "@1984vc/cap-table";
 import CurrencyInput from "react-currency-input-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RowsProps } from "./PropTypes";
 import { FaRegTrashCan, FaBars } from "react-icons/fa6";
 import PercentNote from "./PercentNote";
-import { SafeCapTableRow } from "@library/cap-table/types";
+import { SafeCapTableRow } from "@1984vc/cap-table";
 import TooltipComponent from "@/components/tooltip/Tooltip";
 
 export type SAFEProps = SafeCapTableRow & {

@@ -2,10 +2,8 @@ import holdingHtml from "./pages/holding.html";
 import dashboardHtml from "./pages/dashboard.html";
 import demoHtml from "./pages/demo.html";
 import { decompressState, isLegacyHash } from "./utils/stateCompression";
-import { fitConversion } from "./library/conversion-solver";
-import { buildPricedRoundCapTable } from "./library/cap-table/priced-round";
-import { populateSafeCaps } from "./library/safe-calcs";
-import { CapTableRowType, CommonRowType, SAFENote, CommonStockholder, SeriesInvestor, StakeHolder } from "./library/cap-table/types";
+import { fitConversion, buildPricedRoundCapTable, populateSafeCaps, CapTableRowType, CommonRowType } from "@1984vc/cap-table";
+import type { SAFENote, CommonStockholder, SeriesInvestor, StakeHolder } from "@1984vc/cap-table";
 
 interface WorksheetData {
 	id: string;

@@ -1,14 +1,14 @@
 import { createSelector } from "reselect";
 import { ExistingShareholderState, IConversionStateData, IRowState, SAFEState } from "../ConversionState";
-import { buildPricedRoundCapTable } from "@library/cap-table";
+import { buildPricedRoundCapTable } from "@1984vc/cap-table";
 import { CapTableProps } from "@/components/safe-conversion/Conversion/CapTableResults";
-import { BestFit, fitConversion } from "@library/conversion-solver";
-import { stringToNumber } from "@library/utils/numberFormatting";
+import { BestFit, fitConversion } from "@1984vc/cap-table";
+import { stringToNumber } from "@1984vc/cap-table";
 import { SAFEProps } from "@/components/safe-conversion/Conversion/SafeNoteList";
-import { getCapForSafe } from "@library/safe-calcs";
+import { getCapForSafe } from "@1984vc/cap-table";
 import { SeriesProps } from "@/components/safe-conversion/Conversion/SeriesInvestorList";
 import { PricedRoundPropsData } from "@/components/safe-conversion/Conversion/PricedRound";
-import { CommonStockholder, SAFENote, SeriesInvestor, CapTableRowType, CommonRowType } from "@library/cap-table/types";
+import { CommonStockholder, SAFENote, SeriesInvestor, CapTableRowType, CommonRowType } from "@1984vc/cap-table";
 
 export type ResultSelectorState = IConversionStateData & {
   preMoneyChange?: number;

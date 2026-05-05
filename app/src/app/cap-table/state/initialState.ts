@@ -1,4 +1,4 @@
-import { CapTableRowType } from "@library/cap-table/types";
+import { CapTableRowType } from "@1984vc/cap-table";
 import { IConversionStateData } from "./ConversionState";
 import { earlyStageInvestors, founders, seriesAInvestors } from "./data";
 

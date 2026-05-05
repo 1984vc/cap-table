@@ -1,5 +1,5 @@
 import TooltipComponent from "@/components/tooltip/Tooltip";
-import { CapTableOwnershipError } from "@library/cap-table/types";
+import { CapTableOwnershipError } from "@1984vc/cap-table";
 
 interface PercentNoteProps {
   pct: number;

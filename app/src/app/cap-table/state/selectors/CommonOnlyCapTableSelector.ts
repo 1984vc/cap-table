@@ -1,8 +1,8 @@
 import { createSelector } from "reselect";
 import { ExistingShareholderState, IConversionStateData } from "../ConversionState";
 import { ExistingShareholderProps } from "@/components/safe-conversion/Conversion/ExistingShareholders"
-import { buildExistingShareholderCapTable } from "@library/cap-table";
-import { CapTableRowType, CommonStockholder, CommonRowType } from "@library/cap-table/types";
+import { buildExistingShareholderCapTable } from "@1984vc/cap-table";
+import { CapTableRowType, CommonStockholder, CommonRowType } from "@1984vc/cap-table";
 
 // The initial shares of the existing shareholders
 export const getCommonOnlyCapTable = createSelector(
