@@ -1,10 +1,57 @@
 # @1984vc/cap-table
 
-TypeScript library for modeling startup cap table ownership across funding events — SAFE note conversions, priced rounds, option pools, and dilution.
+Model startup cap table ownership across funding events — SAFE note conversions, priced rounds, option pools, and dilution.
 
 Used by the [1984 Ventures Cap Table Worksheet](https://startup-finance.1984.vc/), a free web tool for founders.
 
-## Install
+## CLI
+
+Run instantly with `npx` — no install needed:
+
+```bash
+npx @1984vc/cap-table priced-round '{
+  "preMoneyValuation": 12000000,
+  "common": [
+    { "name": "Founder 1", "shares": 4500000 },
+    { "name": "Founder 2", "shares": 4500000 },
+    { "name": "Options Pool", "shares": 1000000, "commonType": "unusedOptions" }
+  ],
+  "safes": [
+    { "name": "Seed SAFE", "investment": 1000000, "cap": 10000000, "discount": 0, "conversionType": "post" }
+  ],
+  "seriesInvestors": [
+    { "name": "Lead Investor", "investment": 2000000 }
+  ],
+  "targetOptionsPct": 0.10
+}'
+```
+
+Returns JSON with `conversion` (PPS, share counts, dilution details) and `capTable` (full ownership breakdown).
+
+**Commands:**
+
+| Command | Use case |
+|---------|----------|
+| `existing` | Just existing shareholders, no SAFEs or rounds |
+| `estimated-pre-round` | Have SAFEs but no priced round — estimates ownership |
+| `pre-round` | Know the round valuation — shows pre-money ownership |
+| `priced-round` | Full round with SAFE conversions, series investors, option pool |
+
+Input can be a JSON argument, piped via stdin, or a `.json` file path. The CLI auto-fills type fields — you only need to pass `name` + `shares` (or `name` + `investment` for investors). See `skills/cap-table/SKILL.md` for the complete input/output schema.
+
+```bash
+npx @1984vc/cap-table --help
+```
+
+### Agent Skill
+
+Install as an agent skill so coding agents (Claude Code, Cursor, etc.) know how to use the CLI:
+
+```bash
+npx skills add 1984vc/cap-table
+```
+
+## Install (Library)
 
 ```bash
 npm install @1984vc/cap-table
