@@ -1,3 +1,12 @@
+---
+name: cap-table
+description: Model startup cap table ownership — SAFE conversions (cap, discount, post-money), priced rounds, option pool refreshes, and dilution. Use when calculating founder ownership percentages, converting SAFEs to equity, building pre-round or post-round cap tables, or estimating dilution from a Series A/B raise.
+license: MIT
+metadata:
+  author: 1984 Ventures
+  version: "0.1.0"
+---
+
 # Cap Table Calculator
 
 > Model startup cap tables: ownership percentages, SAFE conversions, priced rounds, and option pool refreshes.
