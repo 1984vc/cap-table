@@ -1,5 +1,5 @@
 import { SAFENote } from "./cap-table/types";
-import { sumSafeConvertedShares, safeConvert } from "./safe-calcs";
+import { populateSafeCaps, sumSafeConvertedShares, safeConvert } from "./safe-calcs";
 import { RoundingStrategy, roundPPSToPlaces, roundShares } from "./utils/rounding";
 
 export type BestFit = {
@@ -135,6 +135,8 @@ export const fitConversion = (
   seriesInvestments: number[],
   roundingStrategy: RoundingStrategy = DEFAULT_ROUNDING_STRATEGY,
 ): BestFit => {
+  const processedSafes = populateSafeCaps(safes);
+
   // Use this figure as a starting point
   let totalShares = commonShares + unusedOptions;
   let lastTotalShares = totalShares;
@@ -147,7 +149,7 @@ export const fitConversion = (
       commonShares,
       unusedOptions,
       targetOptionsPct,
-      safes,
+      processedSafes,
       seriesInvestments,
       totalShares,
       roundingStrategy
@@ -169,7 +171,7 @@ export const fitConversion = (
   } = calculatePreAndPostMoneyShares(preMoneyValuation, commonShares, unusedOptions, targetOptionsPct, seriesInvestments, totalShares, roundingStrategy)
 
   const convertedSafeShares = sumSafeConvertedShares(
-    safes,
+    processedSafes,
     pps,
     preMoneyShares,
     postMoneyShares,
@@ -177,12 +179,12 @@ export const fitConversion = (
   );
 
   // Get a list of the PPS's for each SAFE
-  const ppss: number[] = Array(safes.length).fill(pps);
-  for (const [idx, safe] of Array.from(safes.entries())) {
+  const ppss: number[] = Array(processedSafes.length).fill(pps);
+  for (const [idx, safe] of Array.from(processedSafes.entries())) {
     ppss[idx] = roundPPSToPlaces(safeConvert(safe, preMoneyShares, postMoneyShares, pps), roundingStrategy.roundPPSPlaces);
   }
 
-  const totalInvested = sumArray(seriesInvestments) + safes.reduce((acc, safe) => acc + safe.investment, 0);
+  const totalInvested = sumArray(seriesInvestments) + processedSafes.reduce((acc, safe) => acc + safe.investment, 0);
 
   return {
     pps,

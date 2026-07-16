@@ -81,4 +81,54 @@ describe("Building a priced-round cap table with common shareholders, SAFE notes
 
     crossCheckCapTableResults([...common, ...safes, ...series, refreshedOptionsPool], total);
   });
+
+  test("an MFN SAFE adopts the lowest subsequent post-money SAFE cap", () => {
+    const documentedMFN: SAFENote[] = [
+      {
+        name: "YC MFN",
+        investment: 375_000,
+        discount: 0,
+        cap: 0,
+        conversionType: "post",
+        sideLetters: ["mfn"],
+        type: CapTableRowType.Safe,
+      },
+      {
+        name: "Later SAFE",
+        investment: 5_000_000,
+        discount: 0,
+        cap: 30_000_000,
+        conversionType: "post",
+        type: CapTableRowType.Safe,
+      },
+    ];
+    const explicitCapMFN: SAFENote[] = documentedMFN.map((safe, index) =>
+      index === 0 ? { ...safe, cap: 30_000_000, sideLetters: [] } : safe,
+    );
+
+    const calculate = (safes: SAFENote[]) =>
+      fitConversion(50_000_000, 10_000_000, safes, 0, 0.1, [10_000_000]);
+
+    const documentedResult = calculate(documentedMFN);
+    const explicitResult = calculate(explicitCapMFN);
+    const common: CommonStockholder[] = [
+      {
+        name: "Founder 1",
+        shares: 5_000_000,
+        type: CapTableRowType.Common,
+        commonType: CommonRowType.Shareholder,
+      },
+      {
+        name: "Founder 2",
+        shares: 5_000_000,
+        type: CapTableRowType.Common,
+        commonType: CommonRowType.Shareholder,
+      },
+    ];
+    const capTable = buildPricedRoundCapTable(documentedResult, [...common, ...documentedMFN]);
+
+    expect(documentedResult.ppss[0]).toBe(explicitResult.ppss[0]);
+    expect(documentedResult.totalShares).toBe(explicitResult.totalShares);
+    expect(capTable.safes[0].cap).toBe(30_000_000);
+  });
 });

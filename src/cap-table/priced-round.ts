@@ -1,4 +1,5 @@
 import { BestFit } from "../conversion-solver";
+import { populateSafeCaps } from "../safe-calcs";
 import { roundShares } from "../utils/rounding";
 import { StakeHolder, CommonCapTableRow, SafeCapTableRow, SeriesCapTableRow, RefreshedOptionsCapTableRow, TotalCapTableRow, CapTableOwnershipError, CommonStockholder, SAFENote, SeriesInvestor, CapTableRowType, CommonRowType } from "./types";
 
@@ -13,7 +14,7 @@ export const buildPricedRoundCapTable = (pricedConversion: BestFit, stakeHolders
     error?: CapTableOwnershipError
   } => {
   const commonShareholders = stakeHolders.filter((stakeHolder) => stakeHolder.type === CapTableRowType.Common && stakeHolder.commonType !== CommonRowType.UnusedOptions) as CommonStockholder[];
-  const safeNotes = stakeHolders.filter((stakeHolder) => stakeHolder.type === CapTableRowType.Safe) as SAFENote[];
+  const safeNotes = populateSafeCaps(stakeHolders.filter((stakeHolder) => stakeHolder.type === CapTableRowType.Safe) as SAFENote[]);
   const seriesInvestors = stakeHolders.filter((stakeHolder) => stakeHolder.type === CapTableRowType.Series) as SeriesInvestor[];
   const totalShares = pricedConversion.totalShares;
 

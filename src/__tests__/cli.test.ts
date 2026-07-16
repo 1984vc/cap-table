@@ -98,4 +98,40 @@ describe("CLI", () => {
     expect(result.capTable.safes[0].type).toBe("safe");
     expect(result.capTable.series[0].type).toBe("series");
   });
+
+  test("priced-round applies an MFN side letter to subsequent SAFE caps", () => {
+    const base = {
+      preMoneyValuation: 50_000_000,
+      common: [
+        { name: "Founder 1", shares: 5_000_000 },
+        { name: "Founder 2", shares: 5_000_000 },
+      ],
+      seriesInvestors: [{ name: "Series A", investment: 10_000_000 }],
+      targetOptionsPct: 0.1,
+    };
+    const laterSafe = {
+      name: "Later SAFE",
+      investment: 5_000_000,
+      cap: 30_000_000,
+      conversionType: "post",
+    };
+    const documented = JSON.parse(run("priced-round", JSON.stringify({
+      ...base,
+      safes: [
+        { name: "YC MFN", investment: 375_000, cap: 0, conversionType: "post", sideLetters: ["mfn"] },
+        laterSafe,
+      ],
+    })));
+    const explicit = JSON.parse(run("priced-round", JSON.stringify({
+      ...base,
+      safes: [
+        { name: "YC MFN", investment: 375_000, cap: 30_000_000, conversionType: "post" },
+        laterSafe,
+      ],
+    })));
+
+    expect(documented.conversion.ppss[0]).toBe(explicit.conversion.ppss[0]);
+    expect(documented.capTable.safes[0].ownershipPct).toBe(explicit.capTable.safes[0].ownershipPct);
+    expect(documented.capTable.safes[0].cap).toBe(30_000_000);
+  });
 });
