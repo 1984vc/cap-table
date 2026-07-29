@@ -1,10 +1,25 @@
 import { SAFENote } from "./cap-table/types";
-import { populateSafeCaps, sumSafeConvertedShares, safeConvert } from "./safe-calcs";
+import { EffectiveSAFE, resolveMFNElections, safeConvert } from "./safe-calcs";
+import { CalculationError, validateConversionInput } from "./validation";
 import { RoundingStrategy, roundPPSToPlaces, roundShares } from "./utils/rounding";
+
+export type SafeConversionOutcome = {
+  safeIndex: number;
+  pps: number;
+  shares: number;
+  controllingTerm: "round" | "discount" | "pre-money-cap" | "post-money-cap" | "fixed-percentage";
+  contractualTerms: Pick<SAFENote, "cap" | "discount" | "conversionType">;
+  effectiveTerms: Pick<SAFENote, "cap" | "discount" | "conversionType">;
+  electionSourceIndex?: number;
+  electionSourceName?: string;
+};
 
 export type BestFit = {
   pps: number;
   ppss: number[];
+  safeConversions: SafeConversionOutcome[];
+  seriesInvestorShares: number[];
+  seriesInvestorInvestments: number[];
   convertedSafeShares: number;
   seriesShares: number;
   preMoneyShares: number;
@@ -23,182 +38,198 @@ export const DEFAULT_ROUNDING_STRATEGY: RoundingStrategy = {
   roundPPSPlaces: 5,
 };
 
-// Quick utility to sum an array of numbers
-const sumArray = (arr: number[]): number => arr.reduce((a, b) => a + b, 0);
-type PreAndPostMoneyCalculation = {
+const sum = (values: number[]): number => values.reduce((total, value) => total + value, 0);
+
+type Attempt = {
+  inputTotal: number;
+  totalShares: number;
+  pps: number;
+  safes: EffectiveSAFE[];
+  safeConversions: SafeConversionOutcome[];
+  seriesInvestorShares: number[];
   preMoneyShares: number;
   postMoneyShares: number;
-  pps: number;
-  optionsPool: number;
-  increaseInOptionsPool: number;
-  totalShares: number;
-  seriesShares: number;
-}
-
-// Here's what we know:
-// 1. The amount of pre-money shares are equal to the sum of the common shares and the increase in options pool
-// 2. The amount of post-money shares are equal to the total shares minus the series shares and the increase in options pool
-// This function calculates the pre-money and post-money shares using the minimum amount of information needed
-const calculatePreAndPostMoneyShares = (
-  preMoneyValuation: number,
-  commonShares: number,
-  unusedOptions: number,
-  targetOptionsPct: number,
-  seriesInvestments: number[],
-  totalShares: number, // This is only number that changes
-  roundingStrategy: RoundingStrategy = DEFAULT_ROUNDING_STRATEGY,
-): PreAndPostMoneyCalculation => {
-
-  let optionsPool =
-    roundShares(totalShares * targetOptionsPct, roundingStrategy);
-
-  // Don't let the options pool be less than the unused options. Assume the unused options are the minimum
-  if (optionsPool < unusedOptions) {
-    optionsPool = unusedOptions;
-  }
-
-
-  const increaseInOptionsPool = optionsPool - unusedOptions;
-
-  const seriesInvestment = sumArray(seriesInvestments.map((seriesInvestment) => {
-    return seriesInvestment
-  }))
-
-  const pps = roundPPSToPlaces((preMoneyValuation + seriesInvestment) / totalShares, roundingStrategy.roundPPSPlaces);
-
-  const seriesShares = sumArray(
-    seriesInvestments.map((seriesInvestment) =>
-      roundShares(seriesInvestment / pps, roundingStrategy),
-    ),
-  );
-
-  const preMoneyShares = commonShares + unusedOptions + increaseInOptionsPool;
-  const postMoneyShares = totalShares - seriesShares - increaseInOptionsPool;
-
-  return {
-    preMoneyShares,
-    postMoneyShares,
-    pps,
-    optionsPool,
-    increaseInOptionsPool,
-    totalShares: postMoneyShares + increaseInOptionsPool + seriesShares, // We need to take into account the rounding of the Series shares
-    seriesShares, // Helpful for debugging
-  }
-
-}
-
-// Allows us to "test" a fit of the total shares to see if it's stable
-const attemptFit = (
-  preMoneyValuation: number,
-  commonShares: number,
-  unusedOptions: number,
-  targetOptionsPct: number,
-  safes: SAFENote[],
-  seriesInvestments: number[],
-  totalShares: number, // This is only number that changes
-  roundingStrategy: RoundingStrategy = DEFAULT_ROUNDING_STRATEGY,
-): number => {
-  // Calculate the pre and post money shares using the total shares as the only variable
-  const results = calculatePreAndPostMoneyShares(preMoneyValuation, commonShares, unusedOptions, targetOptionsPct, seriesInvestments, totalShares, roundingStrategy)
-
-  // Use the pre and post money shares to calculate the new SAFE shares conversions
-  const safeShares = sumSafeConvertedShares(
-    safes,
-    results.pps,
-    results.preMoneyShares,
-    results.postMoneyShares,
-    roundingStrategy,
-  )
-
-  // This changes the total shares based on how the SAFEs converted
-
-  // Determine the new total shares, this could be different than the original total shares
-  const newTotalShares = results.seriesShares + commonShares + results.optionsPool + safeShares;
-  return newTotalShares
+  additionalOptions: number;
+  totalOptions: number;
 };
 
-// Takes in mininum information and returns the best fit for a conversion of SAFEs and the new target option pool
-export const fitConversion = (
-  // The premoney valuation of the round
+const controllingTerm = (
+  safe: SAFENote,
+  preShares: number,
+  postShares: number,
+  roundPPS: number,
+): SafeConversionOutcome["controllingTerm"] => {
+  if (safe.conversionType === "yc7p") return "fixed-percentage";
+  const discountPrice = (1 - safe.discount) * roundPPS;
+  if (safe.cap === 0) return safe.discount > 0 ? "discount" : "round";
+  const capPrice = safe.cap / (safe.conversionType === "pre" ? preShares : postShares);
+  if (capPrice <= discountPrice) return safe.conversionType === "pre" ? "pre-money-cap" : "post-money-cap";
+  return safe.discount > 0 ? "discount" : "round";
+};
+
+const calculateAttempt = (
+  inputTotal: number,
   preMoneyValuation: number,
-  // Existing shareholders (doesn't include unused options)
   commonShares: number,
-  // The SAFE's we wish to convert
   safes: SAFENote[],
-  // Our unused options - This plus existing is the total shares we currently have
   unusedOptions: number,
-  // Our new target option pool size
   targetOptionsPct: number,
-  // The series investors on the priced round
-  // We split this out because we need to know how much each invested since we'll be rounding shares
-  // per investor. This is the only way to get a truly accurate representation of the total shares
+  seriesInvestments: number[],
+  strategy: RoundingStrategy,
+): Attempt => {
+  const totalOptions = Math.max(unusedOptions, roundShares(inputTotal * targetOptionsPct, strategy));
+  const additionalOptions = totalOptions - unusedOptions;
+  const totalSeriesInvestment = sum(seriesInvestments);
+  const pps = roundPPSToPlaces(
+    (preMoneyValuation + totalSeriesInvestment) / inputTotal,
+    strategy.roundPPSPlaces,
+  );
+  const seriesInvestorShares = seriesInvestments.map((investment) => roundShares(investment / pps, strategy));
+  const seriesShares = sum(seriesInvestorShares);
+  const preMoneyShares = commonShares + totalOptions;
+  const postMoneyShares = inputTotal - seriesShares - additionalOptions;
+  const effectiveSafes = resolveMFNElections(safes, preMoneyShares, postMoneyShares, pps);
+
+  const ordinary: SafeConversionOutcome[] = [];
+  const fixedIndexes: number[] = [];
+  effectiveSafes.forEach((safe, safeIndex) => {
+    if (safe.conversionType === "yc7p") {
+      fixedIndexes.push(safeIndex);
+      return;
+    }
+    const conversionPPS = roundPPSToPlaces(
+      safeConvert(safe, preMoneyShares, postMoneyShares, pps),
+      strategy.roundPPSPlaces,
+    );
+    ordinary.push({
+      safeIndex,
+      pps: conversionPPS,
+      shares: roundShares(safe.investment / conversionPPS, strategy),
+      controllingTerm: controllingTerm(safe, preMoneyShares, postMoneyShares, pps),
+      contractualTerms: safe.contractualTerms ?? {
+        cap: safe.cap, discount: safe.discount, conversionType: safe.conversionType,
+      },
+      effectiveTerms: { cap: safe.cap, discount: safe.discount, conversionType: safe.conversionType },
+      electionSourceIndex: safe.electionSourceIndex,
+      electionSourceName: safe.electionSourceName,
+    });
+  });
+
+  const fixedPct = fixedIndexes.length * 0.07;
+  const fixedBase = commonShares + unusedOptions + sum(ordinary.map((outcome) => outcome.shares));
+  const preSeriesWithFixed = fixedBase / (1 - fixedPct);
+  const fixed = fixedIndexes.map((safeIndex): SafeConversionOutcome => {
+    const safe = effectiveSafes[safeIndex];
+    const shares = roundShares(0.07 * preSeriesWithFixed, strategy);
+    return {
+      safeIndex,
+      pps: safe.investment / shares,
+      shares,
+      controllingTerm: "fixed-percentage",
+      contractualTerms: safe.contractualTerms ?? {
+        cap: safe.cap, discount: safe.discount, conversionType: safe.conversionType,
+      },
+      effectiveTerms: { cap: safe.cap, discount: safe.discount, conversionType: safe.conversionType },
+      electionSourceIndex: safe.electionSourceIndex,
+      electionSourceName: safe.electionSourceName,
+    };
+  });
+  const safeConversions = [...ordinary, ...fixed].sort((a, b) => a.safeIndex - b.safeIndex);
+  const totalShares = commonShares + totalOptions + sum(safeConversions.map((outcome) => outcome.shares)) + seriesShares;
+  return {
+    inputTotal,
+    totalShares,
+    pps,
+    safes: effectiveSafes,
+    safeConversions,
+    seriesInvestorShares,
+    preMoneyShares,
+    postMoneyShares: totalShares - seriesShares - additionalOptions,
+    additionalOptions,
+    totalOptions,
+  };
+};
+
+export const fitConversion = (
+  preMoneyValuation: number,
+  commonShares: number,
+  safes: SAFENote[],
+  unusedOptions: number,
+  targetOptionsPct: number,
   seriesInvestments: number[],
   roundingStrategy: RoundingStrategy = DEFAULT_ROUNDING_STRATEGY,
 ): BestFit => {
-  const processedSafes = populateSafeCaps(safes);
-
-  // Use this figure as a starting point
-  let totalShares = commonShares + unusedOptions;
-  let lastTotalShares = totalShares;
-
-  // Walk the total shares up until we find a stable value where
-  // the total shares converges
-  for (let i = 0; i < 100; i++) {
-    totalShares = attemptFit(
-      preMoneyValuation,
-      commonShares,
-      unusedOptions,
-      targetOptionsPct,
-      processedSafes,
-      seriesInvestments,
-      totalShares,
-      roundingStrategy
-    );
-
-    if (totalShares === lastTotalShares) {
-      break
-    }
-    lastTotalShares = totalShares;
-  }
-
-  // Grab the final results
-  const {
-    pps,
-    preMoneyShares,
-    postMoneyShares,
-    increaseInOptionsPool,
-    seriesShares,
-  } = calculatePreAndPostMoneyShares(preMoneyValuation, commonShares, unusedOptions, targetOptionsPct, seriesInvestments, totalShares, roundingStrategy)
-
-  const convertedSafeShares = sumSafeConvertedShares(
-    processedSafes,
-    pps,
-    preMoneyShares,
-    postMoneyShares,
-    roundingStrategy,
+  validateConversionInput(
+    preMoneyValuation, commonShares, safes, unusedOptions,
+    targetOptionsPct, seriesInvestments, roundingStrategy,
   );
 
-  // Get a list of the PPS's for each SAFE
-  const ppss: number[] = Array(processedSafes.length).fill(pps);
-  for (const [idx, safe] of Array.from(processedSafes.entries())) {
-    ppss[idx] = roundPPSToPlaces(safeConvert(safe, preMoneyShares, postMoneyShares, pps), roundingStrategy.roundPPSPlaces);
+  const totalSeriesInvestment = sum(seriesInvestments);
+  const financingFraction = totalSeriesInvestment / (preMoneyValuation + totalSeriesInvestment);
+  let candidate = Math.max(
+    commonShares + unusedOptions,
+    roundShares((commonShares + unusedOptions) / (1 - targetOptionsPct - financingFraction), roundingStrategy),
+  );
+  const seen = new Set<number>();
+  let attempt: Attempt | undefined;
+
+  while (!seen.has(candidate) && seen.size < 10_000) {
+    seen.add(candidate);
+    attempt = calculateAttempt(
+      candidate, preMoneyValuation, commonShares, safes, unusedOptions,
+      targetOptionsPct, seriesInvestments, roundingStrategy,
+    );
+    if (attempt.totalShares === candidate) break;
+    candidate = attempt.totalShares;
   }
 
-  const totalInvested = sumArray(seriesInvestments) + processedSafes.reduce((acc, safe) => acc + safe.investment, 0);
+  if (!attempt || attempt.totalShares !== attempt.inputTotal) {
+    // Directed price/share rounding can create a short cycle. Search the
+    // bounded neighborhood induced by the cycle before declaring no solution.
+    const center = attempt?.totalShares ?? candidate;
+    const radius = Math.max(64, seen.size + safes.length + seriesInvestments.length);
+    for (let offset = 0; offset <= radius; offset++) {
+      for (const value of offset === 0 ? [center] : [center - offset, center + offset]) {
+        if (value <= 0) continue;
+        const nearby = calculateAttempt(
+          value, preMoneyValuation, commonShares, safes, unusedOptions,
+          targetOptionsPct, seriesInvestments, roundingStrategy,
+        );
+        if (nearby.totalShares === value) {
+          attempt = nearby;
+          break;
+        }
+      }
+      if (attempt && attempt.totalShares === attempt.inputTotal) break;
+    }
+  }
 
+  if (!attempt || attempt.totalShares !== attempt.inputTotal) {
+    throw new CalculationError(
+      "UNRECONCILED_ROUNDING",
+      "no exact share identity exists under the requested PPS and share-rounding settings",
+      { visitedStates: seen.size, lastTotalShares: attempt?.totalShares },
+    );
+  }
+
+  const convertedSafeShares = sum(attempt.safeConversions.map((outcome) => outcome.shares));
+  const seriesShares = sum(attempt.seriesInvestorShares);
   return {
-    pps,
-    ppss,
-    totalShares,
-    newSharesIssued: totalShares - commonShares - unusedOptions,
-    preMoneyShares,
-    postMoneyShares,
+    pps: attempt.pps,
+    ppss: attempt.safeConversions.map((outcome) => outcome.pps),
+    safeConversions: attempt.safeConversions,
+    seriesInvestorShares: attempt.seriesInvestorShares,
+    seriesInvestorInvestments: [...seriesInvestments],
+    totalShares: attempt.totalShares,
+    newSharesIssued: attempt.totalShares - commonShares - unusedOptions,
+    preMoneyShares: attempt.preMoneyShares,
+    postMoneyShares: attempt.postMoneyShares,
     convertedSafeShares,
     seriesShares,
-    additionalOptions: increaseInOptionsPool,
-    totalOptions: increaseInOptionsPool + unusedOptions,
-    totalInvested,
-    totalSeriesInvestment: sumArray(seriesInvestments),
+    additionalOptions: attempt.additionalOptions,
+    totalOptions: attempt.totalOptions,
+    totalInvested: totalSeriesInvestment + sum(safes.map((safe) => safe.investment)),
+    totalSeriesInvestment,
     roundingStrategy,
   };
 };

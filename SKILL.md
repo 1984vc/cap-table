@@ -1,5 +1,14 @@
 # Cap Table Modeling Skill
 
+> **Current correctness contract:** Public boundaries throw typed
+> `CalculationError`s for invalid or unsupported transactions. `yc7p` is 7%
+> after all SAFE conversions and before Series and pool-refresh dilution. MFN
+> elects one complete later post-money package at actual conversion (earliest
+> wins a PPS tie); pro-rata and later pre-money MFN adoption are rejected. The
+> solver returns authoritative per-investor allocations only after exact share
+> reconciliation. Older fixed-point and cap-only MFN examples below are
+> historical implementation detail.
+
 > **Purpose:** Enable an agent to build an interactive cap-table calculator inside a chat interface.  
 > **Source:** This skill documents the complete mathematical model, the annotated reference implementation, and conversation patterns used by the [`@1984vc/cap-table`](https://github.com/1984vc/cap-table) TypeScript library.
 
@@ -1433,4 +1442,3 @@ const bestFit = fitConversion(
 ---
 
 *End of Skill Document*
-

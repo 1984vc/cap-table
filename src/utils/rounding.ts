@@ -21,7 +21,13 @@ export const roundPPSToPlaces = (num: number, places: number): number => {
     return num;
   }
   const factor = Math.pow(10, places);
-  return Math.ceil(num * factor) / factor;
+  const scaled = num * factor;
+  // Arithmetic that is exactly on a decimal boundary can land a few ulps above
+  // the corresponding binary integer. Only normalize machine noise; a genuine
+  // value above the boundary must still round upward.
+  const nearest = Math.round(scaled);
+  const tolerance = Number.EPSILON * Math.max(1, Math.abs(scaled)) * 4;
+  return Math.ceil(Math.abs(scaled - nearest) <= tolerance ? nearest : scaled) / factor;
 };
 
 export const roundToPlaces = (num: number, places: number): number => {

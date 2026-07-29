@@ -56,7 +56,8 @@ shares = investment / effectivePPS
 
 ### Iterative Solver
 
-`fitConversion` iteratively converges on total share counts because SAFE conversions change the denominator. The solver walks up total shares until stable.
+`fitConversion` resolves the finite active set of SAFE terms, detects repeated
+rounded states, and returns only an exactly reconciled share identity.
 
 ## API Reference
 
@@ -87,7 +88,8 @@ const result = buildEstimatedPreRoundCapTable([
 
 ### `fitConversion(preMoneyValuation, commonShares, safes, unusedOptions, targetOptionsPct, seriesInvestments, roundingStrategy?)`
 
-Iteratively solves for share counts at a priced round.
+Solves and reconciles share counts at a priced round. `safeConversions` and
+`seriesInvestorShares` are authoritative investor-level allocations.
 
 ```typescript
 const conversion = fitConversion(
@@ -135,7 +137,8 @@ const { common, safes, series, refreshedOptionsPool, total } =
 
 ### `populateSafeCaps(safeNotes)`
 
-Applies MFN logic — assigns each uncapped MFN SAFE the lowest cap from subsequent capped SAFEs.
+Applies MFN logic by electing a complete later post-money SAFE package at
+actual conversion. It never combines a cap and discount from different SAFEs.
 
 ### `safeConvert(safe, preShares, postShares, pps)`
 

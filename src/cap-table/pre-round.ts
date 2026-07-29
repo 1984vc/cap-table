@@ -4,6 +4,7 @@ import { RoundingStrategy, roundShares } from "../utils/rounding";
 import { SAFENote, CommonStockholder, CommonCapTableRow, SafeCapTableRow, TotalCapTableRow, StakeHolder, CapTableRowType } from "./types";
 import { buildErrorPreRoundCapTable, buildTBDPreRoundCapTable } from "./error";
 import { formatUSDWithCommas } from "../utils/numberFormatting";
+import { validateStakeholders } from "../validation";
 
 // Builds a preRound cap table assuming there are no refreshed options
 // Needs to handle 3 possible states:
@@ -11,6 +12,7 @@ import { formatUSDWithCommas } from "../utils/numberFormatting";
 // 2. Round entirely TBD because no max cap
 // 3. Error due to some non-sensical input (investment exceeds cap)
 export const buildEstimatedPreRoundCapTable = (stakeHolders: StakeHolder[], roundingStrategy: RoundingStrategy = DEFAULT_ROUNDING_STRATEGY): {common: CommonCapTableRow[], safes: SafeCapTableRow[], total: TotalCapTableRow} => {
+  validateStakeholders(stakeHolders);
   const commonShareholders = stakeHolders.filter((stakeHolder) => stakeHolder.type === CapTableRowType.Common) as CommonStockholder[];
 
   // The premoney shares are used to determine the pre-money safe conversions (SAFE cap / PreMoneyShares)
@@ -44,7 +46,17 @@ export const buildEstimatedPreRoundCapTable = (stakeHolders: StakeHolder[], roun
   const totalInvestment = [...safeNotes].reduce((acc, investor) => acc + investor.investment, 0);
 
   let safeCapTable: SafeCapTableRow[] = safeNotes.map((safe) => {
-    if (safe.conversionType === 'pre') {
+    if (safe.conversionType === "yc7p") {
+      return {
+        name: safe.name,
+        cap: safe.cap,
+        discount: safe.discount,
+        sideLetters: safe.sideLetters,
+        ownershipPct: 0.07,
+        investment: safe.investment,
+        type: CapTableRowType.Safe,
+      };
+    } else if (safe.conversionType === 'pre') {
       const cap = (safe.cap === 0 ? maxCap : safe.cap)
       const shares = roundShares((safe.investment / cap) * preMoneyShares, roundingStrategy)
       return {
@@ -161,6 +173,7 @@ export const buildEstimatedPreRoundCapTable = (stakeHolders: StakeHolder[], roun
 
 // Build a pre-round cap table once we have a pricedRound to convert at
 export const buildPreRoundCapTable = (pricedConversion: BestFit, stakeHolders: StakeHolder[]): {common: CommonCapTableRow[], safes: SafeCapTableRow[], total: TotalCapTableRow} => {
+  validateStakeholders(stakeHolders);
   const commonShareholders = stakeHolders.filter((stakeHolder) => stakeHolder.type === CapTableRowType.Common) as CommonStockholder[];
   const safeNotes = populateSafeCaps(stakeHolders.filter((stakeHolder) => stakeHolder.type === CapTableRowType.Safe) as SAFENote[])
   const totalShares = pricedConversion.totalShares - pricedConversion.seriesShares - pricedConversion.additionalOptions;
@@ -182,15 +195,18 @@ export const buildPreRoundCapTable = (pricedConversion: BestFit, stakeHolders: S
   })
 
   const safeCapTable: SafeCapTableRow[] = safeNotes.map((safe, idx) => {
-    const pps = pricedConversion.ppss[idx];
-    const shares = roundShares(safe.investment / pps, pricedConversion.roundingStrategy);
-    const ownershipPct = shares / totalShares;
+    const outcome = pricedConversion.safeConversions?.[idx];
+    const pps = outcome?.pps ?? pricedConversion.ppss[idx];
+    const shares = outcome?.shares ?? roundShares(safe.investment / pps, pricedConversion.roundingStrategy);
+    // yc7p is contractually measured at this exact pre-Series stage. Shares
+    // remain legally rounded and authoritative for the post-financing table.
+    const ownershipPct = safe.conversionType === "yc7p" ? 0.07 : shares / totalShares;
     return {
       name: safe.name,
       investment: safe.investment,
       ownershipPct,
-      discount: safe.discount,
-      cap: safe.cap,
+      discount: outcome?.effectiveTerms.discount ?? safe.discount,
+      cap: outcome?.effectiveTerms.cap ?? safe.cap,
       shares,
       type: CapTableRowType.Safe,
       pps,

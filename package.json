@@ -19,7 +19,8 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "vitest run",
+    "test": "pnpm build && vitest run",
+    "typecheck": "tsc --noEmit",
     "test:watch": "vitest"
   },
   "files": [
