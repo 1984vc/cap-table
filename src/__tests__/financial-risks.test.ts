@@ -1,0 +1,132 @@
+import { describe, expect, test } from "vitest";
+import {
+  buildEstimatedPreRoundCapTable,
+  buildPreRoundCapTable,
+  CapTableRowType,
+  CommonRowType,
+  fitConversion,
+  populateSafeCaps,
+} from "../index";
+import type { CommonStockholder, SAFENote } from "../index";
+
+const founders: CommonStockholder = {
+  name: "Founders",
+  shares: 10_000_000,
+  type: CapTableRowType.Common,
+  commonType: CommonRowType.Shareholder,
+};
+
+const postSafe = (overrides: Partial<SAFENote> = {}): SAFENote => ({
+  name: "SAFE",
+  investment: 1_000_000,
+  cap: 10_000_000,
+  discount: 0,
+  conversionType: "post",
+  type: CapTableRowType.Safe,
+  ...overrides,
+});
+
+describe("known financial-model risks", () => {
+  test("a fixed-percentage YC SAFE converts into 7% before priced-round dilution", () => {
+    const yc = postSafe({
+      name: "YC 7% SAFE",
+      investment: 125_000,
+      cap: 0,
+      conversionType: "yc7p",
+    });
+    const conversion = fitConversion(
+      20_000_000,
+      founders.shares,
+      [yc],
+      0,
+      0,
+      [5_000_000],
+    );
+    const preRound = buildPreRoundCapTable(conversion, [founders, yc]);
+
+    expect(preRound.safes[0].ownershipPct).toBeCloseTo(0.07, 8);
+  });
+
+  test("an MFN SAFE can adopt a later discount when that is the favorable term", () => {
+    const mfn = postSafe({
+      name: "MFN SAFE",
+      investment: 375_000,
+      cap: 0,
+      sideLetters: ["mfn"],
+    });
+    const laterDiscountSafe = postSafe({
+      name: "Later Discount SAFE",
+      investment: 500_000,
+      cap: 0,
+      discount: 0.2,
+    });
+
+    const [resolved] = populateSafeCaps([mfn, laterDiscountSafe]);
+
+    expect(resolved.discount).toBe(0.2);
+  });
+
+  test("aggregate post-money SAFE ownership of 100% is rejected", () => {
+    const safes = [
+      postSafe({ name: "SAFE 1", investment: 6_000_000 }),
+      postSafe({ name: "SAFE 2", investment: 4_000_000 }),
+    ];
+
+    expect(() =>
+      buildEstimatedPreRoundCapTable([founders, ...safes]),
+    ).toThrow();
+  });
+
+  test("a 100% discount is rejected before conversion", () => {
+    const invalid = postSafe({ cap: 0, discount: 1 });
+
+    expect(() =>
+      fitConversion(
+        20_000_000,
+        founders.shares,
+        [invalid],
+        0,
+        0,
+        [5_000_000],
+      ),
+    ).toThrow();
+  });
+
+  test("an option-pool target of 100% is rejected", () => {
+    expect(() =>
+      fitConversion(
+        20_000_000,
+        founders.shares,
+        [],
+        0,
+        1,
+        [5_000_000],
+      ),
+    ).toThrow();
+  });
+
+  test("a zero pre-money valuation is rejected", () => {
+    expect(() =>
+      fitConversion(0, founders.shares, [], 0, 0, [5_000_000]),
+    ).toThrow();
+  });
+
+  test("an exercised pro-rata side letter is explicitly rejected", () => {
+    expect(() => fitConversion(
+      20_000_000, founders.shares,
+      [postSafe({ sideLetters: ["pro-rata"] })],
+      0, 0, [5_000_000],
+    )).toThrow();
+  });
+
+  test("the solver returns an exactly reconciled share identity", () => {
+    const result = fitConversion(
+      18_000_000, founders.shares,
+      [postSafe({ investment: 733_333, cap: 8_750_000 })],
+      500_000, 0.13, [2_345_678, 1_234_567],
+    );
+    expect(
+      founders.shares + result.totalOptions + result.convertedSafeShares + result.seriesShares,
+    ).toBe(result.totalShares);
+  });
+});

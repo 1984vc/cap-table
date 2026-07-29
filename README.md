@@ -2,6 +2,11 @@
 
 Model startup cap table ownership across funding events — SAFE note conversions, priced rounds, option pools, and dilution.
 
+Calculations validate all public inputs and throw `CalculationError` with a
+stable `code` (`INVALID_INPUT`, `UNSUPPORTED_TERMS`,
+`CONFLICTING_TRANSACTION_DATA`, or `UNRECONCILED_ROUNDING`). Pro-rata side
+letters are rejected because the current model has no participation amount.
+
 Used by the [1984 Ventures Cap Table Worksheet](https://startup-finance.1984.vc/), a free web tool for founders.
 
 ## CLI
@@ -108,12 +113,14 @@ const { common, safes: safeRows, series, refreshedOptionsPool, total } =
 | `"pre"` | Pre-money SAFE — converts on pre-money valuation |
 | `"post"` | Post-money SAFE — converts on post-money (YC standard) |
 | `"mfn"` | MFN (Most Favored Nation) — no cap, gets lowest subsequent cap |
-| `"yc7p"` | YC 7% post-money — guarantees 7% ownership |
+| `"yc7p"` | Fixed 7% — measured after SAFE conversions and before new Series shares and the pool increase |
 | `"ycmfn"` | YC MFN variant (legacy) |
 
 ### MFN Side Letters
 
-SAFEs with `sideLetters: ["mfn"]` automatically receive the lowest cap of any subsequent capped SAFE via `populateSafeCaps()`.
+SAFEs with `sideLetters: ["mfn"]` elect one complete later post-money SAFE package (cap and
+discount). Packages are compared at actual conversion PPS; ties select the
+earliest later SAFE. Adoption of a later pre-money package is unsupported.
 
 ### Rounding
 
@@ -191,7 +198,9 @@ const { common, safes, series, refreshedOptionsPool, total, error } =
 
 #### `fitConversion(preMoneyValuation, commonShares, safes, unusedOptions, targetOptionsPct, seriesInvestments, roundingStrategy?)`
 
-Iteratively solves for share counts at a priced round, accounting for SAFE conversions and option pool refresh.
+Solves the active conversion terms and reconciles legal PPS/share rounding to
+an exact share identity. A result includes `safeConversions` and
+`seriesInvestorShares`; cap-table builders use these allocations directly.
 
 ```typescript
 const conversion = fitConversion(

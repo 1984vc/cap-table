@@ -1,115 +1,122 @@
 import { CapTableOwnershipError, SAFENote } from "./cap-table/types";
+import { CalculationError, validateSafes } from "./validation";
 import { RoundingStrategy, roundPPSToPlaces, roundShares } from "./utils/rounding";
 
-const isMFN = (safe: SAFENote): boolean => {
-  // TODO: Legacy of having the conversionType as 'mfn' or "ycmfm", but the eventual conversionType is 'post' and a side letter of 'mfn'
-  // We will eventually need to 'migrate' the old states to this style
-  if (safe.conversionType === "mfn" || safe.conversionType === "ycmfn" || safe.sideLetters?.includes("mfn")) {
-    return true;
-  }
-  return false;
-}
-
-const getMFNCapAfter = (rows: SAFENote[], idx: number): number => {
-  // For each safe after the idx, find the lowest number that's not 0
-  // and return that number
-  return (
-    rows.slice(idx + 1).reduce((val, row) => {
-
-      // Ignore anything that's in MFN
-      if (isMFN(row)) {
-        return val;
-      }
-
-      // Ignore Pre-money safes for now. The assumption is that the MFN is Post-money (YC's is)
-      if (row.conversionType === "pre") {
-        return val;
-      }
-
-      // if the value is 0, return the cap (this is the lowest possible value)
-      if (val === 0) {
-        return row.cap;
-      }
-      // If the value is greater than 0 and the cap is greater than 0 and less than the value
-      // This is our new MFN
-      if (val > 0 && row.cap > 0 && row.cap < val) {
-        return row.cap;
-      }
-      // Just return the current value
-      return val;
-    }, 0) ?? 0
-  );
+export type EffectiveSAFE = SAFENote & {
+  contractualTerms?: Pick<SAFENote, "cap" | "discount" | "conversionType">;
+  electionSourceIndex?: number;
+  electionSourceName?: string;
 };
 
-// Do all the complex work here of handling row data and doing some complex calculations
-// like MFN on safes and ownership percentages at various stages
-export const getCapForSafe = (idx: number, safes: SAFENote[]): number => {
-  const safe = safes[idx];
-  if (isMFN(safe)) {
-    return getMFNCapAfter(safes, idx);
+export const isMFN = (safe: SAFENote): boolean =>
+  safe.conversionType === "mfn" ||
+  safe.conversionType === "ycmfn" ||
+  safe.sideLetters?.includes("mfn") === true;
+
+const candidatePrice = (safe: SAFENote, preShares: number, postShares: number, roundPPS: number): number => {
+  if (safe.conversionType === "pre") {
+    throw new CalculationError("UNSUPPORTED_TERMS", "an MFN SAFE cannot adopt a later pre-money SAFE package");
   }
-  return safe.cap;
+  return safeConvert({ ...safe, conversionType: "post" }, preShares, postShares, roundPPS);
 };
 
-// Ensure MFN Safes get the proper cap
-export const populateSafeCaps = (safeNotes: SAFENote[]): SAFENote[] => {
-  return safeNotes.map((safe, idx): SAFENote => {
-    if (isMFN(safe)) {
-      const cap = getCapForSafe(idx, safeNotes);
-       return { ...safe, cap }
+/** Resolve complete later SAFE packages. Equal prices retain the earliest package. */
+export const resolveMFNElections = (
+  safes: SAFENote[],
+  preShares: number,
+  postShares: number,
+  roundPPS: number,
+): EffectiveSAFE[] => safes.map((safe, index) => {
+  if (!isMFN(safe)) return { ...safe };
+  let best: { safe: SAFENote; index: number; price: number } | undefined;
+  for (let later = index + 1; later < safes.length; later++) {
+    const candidate = safes[later];
+    if (isMFN(candidate)) continue;
+    const price = candidatePrice(candidate, preShares, postShares, roundPPS);
+    if (!best || price < best.price) best = { safe: candidate, index: later, price };
+  }
+  if (!best) return { ...safe };
+  return {
+    ...safe,
+    cap: best.safe.cap,
+    discount: best.safe.discount,
+    conversionType: "post",
+    contractualTerms: {
+      cap: safe.cap,
+      discount: safe.discount,
+      conversionType: safe.conversionType,
+    },
+    electionSourceIndex: best.index,
+    electionSourceName: best.safe.name,
+  };
+});
+
+/**
+ * Compatibility helper for estimates that have no round price. It elects a
+ * complete later post-money package; capped packages compare by cap, while an
+ * uncapped discount beats an uncapped/no-discount package.
+ */
+export const populateSafeCaps = (safeNotes: SAFENote[]): EffectiveSAFE[] =>
+  safeNotes.map((safe, index) => {
+    if (!isMFN(safe)) return { ...safe };
+    const candidates = safeNotes
+      .map((candidate, candidateIndex) => ({ candidate, candidateIndex }))
+      .slice(index + 1)
+      .filter(({ candidate }) => !isMFN(candidate));
+    if (candidates.some(({ candidate }) => candidate.conversionType === "pre")) {
+      throw new CalculationError("UNSUPPORTED_TERMS", "an MFN SAFE cannot adopt a later pre-money SAFE package");
     }
-    return {...safe}
-  })
-}
+    const ranked = candidates.sort((a, b) => {
+      const aCap = a.candidate.cap || Number.POSITIVE_INFINITY;
+      const bCap = b.candidate.cap || Number.POSITIVE_INFINITY;
+      if (aCap !== bCap) return aCap - bCap;
+      return b.candidate.discount - a.candidate.discount;
+    });
+    const elected = ranked[0];
+    if (!elected) return { ...safe };
+    return {
+      ...safe,
+      cap: elected.candidate.cap,
+      discount: elected.candidate.discount,
+      conversionType: "post",
+      contractualTerms: { cap: safe.cap, discount: safe.discount, conversionType: safe.conversionType },
+      electionSourceIndex: elected.candidateIndex,
+      electionSourceName: elected.candidate.name,
+    };
+  });
 
+export const getCapForSafe = (idx: number, safes: SAFENote[]): number =>
+  populateSafeCaps(safes)[idx].cap;
 
-// Sum the shares of the safes after conversion
 export const sumSafeConvertedShares = (
   safes: SAFENote[],
   pps: number,
   preMoneyShares: number,
   postMoneyShares: number,
   roundingStrategy: RoundingStrategy,
-): number => {
-  return sumArray(
-    safes.map((safe) => {
-      const discountPPS = roundPPSToPlaces(safeConvert(safe, preMoneyShares, postMoneyShares, pps), roundingStrategy.roundPPSPlaces);
-      const postSafeShares = safe.investment / discountPPS;
-      return roundShares(postSafeShares, roundingStrategy);
-    }),
-  );
-};
+): number => safes.reduce((sum, safe) => {
+  const safePPS = roundPPSToPlaces(safeConvert(safe, preMoneyShares, postMoneyShares, pps), roundingStrategy.roundPPSPlaces);
+  return sum + roundShares(safe.investment / safePPS, roundingStrategy);
+}, 0);
 
-// Returns the PPS of a conversion given the amount of shares and the price of the shares
 export const safeConvert = (
   safe: SAFENote,
   preShares: number,
   postShares: number,
   pps: number,
 ): number => {
-  if (safe.cap === 0) {
-    return (1 - safe.discount) * pps;
+  if (safe.conversionType === "yc7p") {
+    // Expressing a fixed percentage as a synthetic PPS lets legacy callers use
+    // investment / PPS while the solver supplies the exact reconciled shares.
+    return safe.investment / (0.07 * postShares);
   }
   const discountPPS = (1 - safe.discount) * pps;
-
+  if (safe.cap === 0) return discountPPS;
   const shares = safe.conversionType === "pre" ? preShares : postShares;
-  const capPPS = safe.cap / shares;
-  return Math.min(discountPPS, capPPS);
+  return Math.min(discountPPS, safe.cap / shares);
 };
 
-// Quick utility to sum an array of numbers
-const sumArray = (arr: number[]): number => arr.reduce((a, b) => a + b, 0);
-
 export const checkSafeNotesForErrors = (safeNotes: SAFENote[]): CapTableOwnershipError | undefined => {
-  let ownershipError: CapTableOwnershipError | undefined = undefined
-  safeNotes.forEach((safe) => {
-    if (safe.investment >= safe.cap && safe.cap !== 0) {
-      ownershipError = {
-        type: 'error',
-        reason: "Investment is greater than Cap"
-      }
-
-    }
-  })
-  return ownershipError
-}
+  validateSafes(safeNotes);
+  return undefined;
+};

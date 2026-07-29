@@ -11,6 +11,19 @@ metadata:
 
 > Model startup cap tables: ownership percentages, SAFE conversions, priced rounds, and option pool refreshes.
 
+## Transaction-grade semantics
+
+Use `seriesInvestors` as the canonical priced-round input. Legacy
+`seriesInvestments` is accepted, but if both are present their amounts must
+match in order. `yc7p` is exactly 7% after all SAFE conversions and before new
+Series shares and the option-pool increase. MFN elects a complete later
+post-money package (cap plus discount) at actual conversion, with the earliest
+package winning a PPS tie. Pro-rata and later pre-money MFN adoption are
+unsupported and throw a typed `CalculationError`.
+
+The solver detects repeated rounded states, reconciles an exact integer share
+identity, and exposes authoritative per-SAFE and per-Series-investor outcomes.
+
 ## Install
 
 ```bash
@@ -164,7 +177,8 @@ SAFEs convert to equity at a priced round. The investor gets the **better** of t
 
 ### MFN (Most Favored Nation)
 
-An MFN SAFE has no explicit cap but gets the lowest cap from subsequent capped SAFEs. Pass `sideLetters: ["mfn"]`.
+An MFN SAFE elects the complete later post-money term package producing the
+lowest conversion PPS. Pass `sideLetters: ["mfn"]`.
 
 ### Option Pool Refresh
 
@@ -172,7 +186,8 @@ An MFN SAFE has no explicit cap but gets the lowest cap from subsequent capped S
 
 ### Ownership Percentages
 
-All `ownershipPct` values are decimals: `0.45` = 45%. The solver iteratively converges on self-consistent share counts.
+All `ownershipPct` values are decimals: `0.45` = 45%. Successful solver output
+has an exact reconciled share identity after legal rounding.
 
 ## Quick Examples
 

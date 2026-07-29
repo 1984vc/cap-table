@@ -9,6 +9,7 @@ import {
   DEFAULT_ROUNDING_STRATEGY,
   CapTableRowType,
   CommonRowType,
+  CalculationError,
 } from "./index.js";
 import type { CommonStockholder, SAFENote, SeriesInvestor, StakeHolder } from "./index.js";
 import { readFileSync } from "node:fs";
@@ -70,7 +71,7 @@ function resolveConversionInput(input: any) {
 
   const common = normalizeCommonholders(input.commonShareholders ?? input.common ?? []);
   const safes = normalizeSafes(input.safes ?? []);
-  const series = normalizeSeries(input.seriesInvestors ?? []);
+  let series = normalizeSeries(input.seriesInvestors ?? []);
 
   const commonShares = common
     .filter((c) => c.commonType === CommonRowType.Shareholder)
@@ -81,9 +82,23 @@ function resolveConversionInput(input: any) {
       .filter((c) => c.commonType === CommonRowType.UnusedOptions)
       .reduce((acc, c) => acc + c.shares, 0);
 
-  const resolvedSeriesInvestments = seriesInvestments.length > 0
-    ? seriesInvestments
-    : series.map((s) => s.investment);
+  if (seriesInvestments.length > 0 && series.length > 0) {
+    const agrees = seriesInvestments.length === series.length &&
+      seriesInvestments.every((amount: number, index: number) => amount === series[index].investment);
+    if (!agrees) {
+      throw new CalculationError(
+        "CONFLICTING_TRANSACTION_DATA",
+        "seriesInvestments must exactly match seriesInvestors in investor order",
+      );
+    }
+  }
+  if (series.length === 0 && seriesInvestments.length > 0) {
+    series = normalizeSeries(seriesInvestments.map((investment: number, index: number) => ({
+      name: `Series Investor ${index + 1}`,
+      investment,
+    })));
+  }
+  const resolvedSeriesInvestments = series.map((s) => s.investment);
 
   const conversion = fitConversion(
     preMoneyValuation,

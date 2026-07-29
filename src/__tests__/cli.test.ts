@@ -134,4 +134,13 @@ describe("CLI", () => {
     expect(documented.capTable.safes[0].ownershipPct).toBe(explicit.capTable.safes[0].ownershipPct);
     expect(documented.capTable.safes[0].cap).toBe(30_000_000);
   });
+
+  test("rejects conflicting seriesInvestments and seriesInvestors", () => {
+    expect(() => run("priced-round", JSON.stringify({
+      preMoneyValuation: 10_000_000,
+      common: [{ name: "Founder", shares: 10_000_000 }],
+      seriesInvestments: [2_000_000],
+      seriesInvestors: [{ name: "Lead", investment: 3_000_000 }],
+    }))).toThrow();
+  });
 });

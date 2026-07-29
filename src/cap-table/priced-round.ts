@@ -2,6 +2,7 @@ import { BestFit } from "../conversion-solver";
 import { populateSafeCaps } from "../safe-calcs";
 import { roundShares } from "../utils/rounding";
 import { StakeHolder, CommonCapTableRow, SafeCapTableRow, SeriesCapTableRow, RefreshedOptionsCapTableRow, TotalCapTableRow, CapTableOwnershipError, CommonStockholder, SAFENote, SeriesInvestor, CapTableRowType, CommonRowType } from "./types";
+import { CalculationError, validateStakeholders } from "../validation";
 
 
 export const buildPricedRoundCapTable = (pricedConversion: BestFit, stakeHolders: StakeHolder[]):
@@ -13,6 +14,7 @@ export const buildPricedRoundCapTable = (pricedConversion: BestFit, stakeHolders
     total: TotalCapTableRow,
     error?: CapTableOwnershipError
   } => {
+  validateStakeholders(stakeHolders);
   const commonShareholders = stakeHolders.filter((stakeHolder) => stakeHolder.type === CapTableRowType.Common && stakeHolder.commonType !== CommonRowType.UnusedOptions) as CommonStockholder[];
   const safeNotes = populateSafeCaps(stakeHolders.filter((stakeHolder) => stakeHolder.type === CapTableRowType.Safe) as SAFENote[]);
   const seriesInvestors = stakeHolders.filter((stakeHolder) => stakeHolder.type === CapTableRowType.Series) as SeriesInvestor[];
@@ -31,23 +33,34 @@ export const buildPricedRoundCapTable = (pricedConversion: BestFit, stakeHolders
   })
 
   const safeCapTable: SafeCapTableRow[] = safeNotes.map((safe, idx) => {
-    const pps = pricedConversion.ppss[idx] || 0;
-    const shares = roundShares(safe.investment / pps, pricedConversion.roundingStrategy);
+    const outcome = pricedConversion.safeConversions?.[idx];
+    const pps = outcome?.pps ?? pricedConversion.ppss[idx];
+    const shares = outcome?.shares ?? roundShares(safe.investment / pps, pricedConversion.roundingStrategy);
     const ownershipPct = shares / totalShares;
     return {
       name: safe.name,
       investment: safe.investment,
       ownershipPct,
-      discount: safe.discount,
-      cap: safe.cap,
+      discount: outcome?.effectiveTerms.discount ?? safe.discount,
+      cap: outcome?.effectiveTerms.cap ?? safe.cap,
       shares,
       type: CapTableRowType.Safe,
       pps,
     }
   })
 
-  const seriesCapTable: SeriesCapTableRow[] = seriesInvestors.map((seriesInvestor) => {
-    const shares = roundShares(seriesInvestor.investment / pricedConversion.pps, pricedConversion.roundingStrategy);
+  if (seriesInvestors.length > 0 && (
+    pricedConversion.seriesInvestorShares.length !== seriesInvestors.length ||
+    seriesInvestors.some((investor, index) =>
+      investor.investment !== pricedConversion.seriesInvestorInvestments[index])
+  )) {
+    throw new CalculationError(
+      "CONFLICTING_TRANSACTION_DATA",
+      "the Series investor rows do not match the investor-level allocations used by the solver",
+    );
+  }
+  const seriesCapTable: SeriesCapTableRow[] = seriesInvestors.map((seriesInvestor, index) => {
+    const shares = pricedConversion.seriesInvestorShares[index];
     return {
       name: seriesInvestor.name,
       investment: seriesInvestor.investment,
