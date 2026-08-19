@@ -21,7 +21,7 @@ export const buildEstimatedPreRoundCapTable = (stakeHolders: StakeHolder[], roun
   // The premoney shares are used to determine the pre-money safe conversions (SAFE cap / PreMoneyShares)
   const preMoneyShares = commonShareholders.reduce((acc, stockholder) => acc + stockholder.shares, 0);
 
-  // Handle any MFN side-letters and find the following best cap
+  // Make a provisional, price-free election of one complete later MFN package.
   const inputSafeNotes = stakeHolders.filter((stakeHolder) => stakeHolder.type === CapTableRowType.Safe) as SAFENote[];
   const safeNotes = populateSafeCaps(inputSafeNotes)
 

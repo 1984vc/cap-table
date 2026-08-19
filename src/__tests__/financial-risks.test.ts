@@ -89,6 +89,34 @@ describe("known financial-model risks", () => {
     expect(priced.safes[0].cap).toBe(0);
   });
 
+  test("an MFN election never mixes a cap and discount from different later SAFEs", () => {
+    const mfn = postSafe({ name: "MFN", investment: 375_000, cap: 0, sideLetters: ["mfn"] });
+    const lowCap = postSafe({ name: "Low Cap", investment: 500_000, cap: 8_000_000 });
+    const discounted = postSafe({ name: "Discount 30%", investment: 500_000, cap: 0, discount: 0.3 });
+
+    const conversion = fitConversion(
+      50_000_000,
+      founders.shares,
+      [mfn, lowCap, discounted],
+      0,
+      0,
+      [5_000_000],
+    );
+    const election = conversion.safeConversions[0];
+
+    expect(election.electionSourceName).toBe("Low Cap");
+    expect(election.effectiveTerms).toEqual({
+      cap: 8_000_000,
+      discount: 0,
+      conversionType: "post",
+    });
+    expect(election.effectiveTerms).not.toEqual({
+      cap: 8_000_000,
+      discount: 0.3,
+      conversionType: "post",
+    });
+  });
+
   test.each(["pre", "post"] as const)(
     "a %s-money SAFE whose investment reaches its cap gets the specific diagnostic",
     (conversionType) => {

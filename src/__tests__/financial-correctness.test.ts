@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  buildExistingShareholderCapTable,
   buildPreRoundCapTable,
   buildPricedRoundCapTable,
   CapTableRowType,
@@ -64,6 +65,75 @@ describe("priced-round financial identities", () => {
     expectClose(capTable.common[1].ownershipPct!, 0.35);
     expectClose(capTable.series[0].ownershipPct, 0.2);
     expectClose(capTable.optionsPool.ownershipPct!, 0.1);
+  });
+
+  test("matches the Cap Table 101 employee issuance without an option pool", () => {
+    const founders = [
+      { ...founder(1_000_000), name: "Founder A" },
+      { ...founder(1_000_000), name: "Founder B" },
+    ];
+    const conversion = fitConversion(8_000_000, 2_000_000, [], 0, 0, [2_000_000]);
+    const financed = buildPricedRoundCapTable(conversion, [...founders, series(2_000_000)]);
+    const employeeShares = 131_578;
+    const afterHire = buildExistingShareholderCapTable([
+      ...founders,
+      {
+        name: "Seed Investor",
+        shares: financed.series[0].shares,
+        type: CapTableRowType.Common,
+        commonType: CommonRowType.Shareholder,
+      },
+      {
+        name: "Employee",
+        shares: employeeShares,
+        type: CapTableRowType.Common,
+        commonType: CommonRowType.Shareholder,
+      },
+    ]);
+
+    expect(afterHire.total.shares).toBe(2_631_578);
+    expectClose(afterHire.common[0].ownershipPct!, 0.38);
+    expectClose(afterHire.common[1].ownershipPct!, 0.38);
+    expectClose(afterHire.common[2].ownershipPct!, 0.19);
+    expectClose(afterHire.common[3].ownershipPct!, 0.05);
+  });
+
+  test("matches the Cap Table 101 employee grant from an existing option pool", () => {
+    const founders = [
+      { ...founder(1_000_000), name: "Founder A" },
+      { ...founder(1_000_000), name: "Founder B" },
+    ];
+    const conversion = fitConversion(8_000_000, 2_000_000, [], 0, 0.1, [2_000_000]);
+    const financed = buildPricedRoundCapTable(conversion, [...founders, series(2_000_000)]);
+    const employeeShares = 142_857;
+    const afterGrant = buildExistingShareholderCapTable([
+      ...founders,
+      {
+        name: "Seed Investor",
+        shares: financed.series[0].shares,
+        type: CapTableRowType.Common,
+        commonType: CommonRowType.Shareholder,
+      },
+      {
+        name: "Employee",
+        shares: employeeShares,
+        type: CapTableRowType.Common,
+        commonType: CommonRowType.Shareholder,
+      },
+      {
+        name: "Available Option Pool",
+        shares: financed.optionsPool.shares - employeeShares,
+        type: CapTableRowType.Common,
+        commonType: CommonRowType.UnusedOptions,
+      },
+    ]);
+
+    expect(afterGrant.total.shares).toBe(financed.total.shares);
+    expectClose(afterGrant.common[0].ownershipPct!, financed.common[0].ownershipPct!);
+    expectClose(afterGrant.common[1].ownershipPct!, financed.common[1].ownershipPct!);
+    expectClose(afterGrant.common[2].ownershipPct!, financed.series[0].ownershipPct);
+    expectClose(afterGrant.common[3].ownershipPct!, 0.05);
+    expectClose(afterGrant.optionsPool.ownershipPct!, 0.05);
   });
 
   test("a priced round without SAFEs or a pool refresh has the exact expected PPS and ownership", () => {
