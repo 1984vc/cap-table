@@ -6,8 +6,7 @@
 > elects one complete later post-money package at actual conversion (earliest
 > wins a PPS tie); pro-rata and later pre-money MFN adoption are rejected. The
 > solver returns authoritative per-investor allocations only after exact share
-> reconciliation. Older fixed-point and cap-only MFN examples below are
-> historical implementation detail.
+> reconciliation.
 
 > **Purpose:** Enable an agent to build an interactive cap-table calculator inside a chat interface.  
 > **Source:** This skill documents the complete mathematical model, the annotated reference implementation, and conversation patterns used by the [`@1984vc/cap-table`](https://github.com/1984vc/cap-table) TypeScript library.
@@ -84,13 +83,19 @@ The investor's ownership is dilutive — they get shares *before* the new money 
 
 #### 1.3.2 Post-Money SAFE
 
-A post-money SAFE (the Y Combinator standard) guarantees a fixed ownership percentage of the *post-money* cap table:
+A capped post-money SAFE (the Y Combinator standard) purchases a fixed
+ownership percentage measured after all post-money SAFE investments are
+accounted for, but before the new money in the priced round:
 
 ```
 ownershipPct = investment / cap
 ```
 
-This means the SAFE investor's stake is calculated *after* all conversions but *before* the Series round. Critically, post-money SAFEs are **not diluted** by the Series investors — their ownership percentage is locked in at conversion.
+Post-money SAFEs converting together do not dilute one another: each preserves
+its independently purchased pre-round percentage. The subsequent priced-round
+shares and any option-pool increase do dilute that percentage. For example, a
+SAFE holding 10% immediately before a Series investor purchases 20% will hold
+8% after that investment, before considering any additional pool dilution.
 
 #### 1.3.3 Discount
 
@@ -119,13 +124,22 @@ effectivePPS = (1 - discount) * seriesPPS
 
 #### 1.3.5 MFN (Most Favored Nation)
 
-An MFN SAFE has no explicit cap but receives the **lowest cap** of any subsequent capped SAFE. This is implemented by scanning all SAFEs that come *after* the MFN SAFE in the list and taking the minimum non-zero cap among post-money SAFEs.
+An MFN SAFE lets its holder elect the terms of one more-favorable SAFE issued
+later. The elected MFN is amended to match that later instrument as a complete
+package: cap, discount, and conversion type all come from the same SAFE. Never
+combine a cap from one later SAFE with a discount from another.
 
 ```
-mfnCap = min(cap of all subsequent post-money SAFEs where cap > 0)
+eligiblePackages = later non-MFN post-money SAFEs
+electedPackage = package with the lowest effective conversion PPS
 ```
 
-If no subsequent capped SAFE exists, the MFN remains uncapped until one is added.
+The priced-round solver can compare packages exactly because the Series PPS is
+known. If two packages produce the same PPS, the earlier package wins. The
+price-free pre-round view is explicitly provisional: it uses a cap-first
+estimate and may elect a different package once priced-round terms are known.
+If there is no eligible later SAFE, the MFN retains its original terms. Adoption
+of a later pre-money SAFE package is currently unsupported.
 
 #### 1.3.6 YC 7% Post-Money
 
@@ -473,64 +487,55 @@ export const shortenedUSD = (value: number | string) => {
 ### 2.4 SAFE Calculations (`src/safe-calcs.ts`)
 
 ```typescript
-import { CapTableOwnershipError, SAFENote } from "./cap-table/types";
-import { RoundingStrategy, roundPPSToPlaces, roundShares } from "./utils/rounding";
+export const isMFN = (safe: SAFENote): boolean =>
+  safe.conversionType === "mfn" ||
+  safe.conversionType === "ycmfn" ||
+  safe.sideLetters?.includes("mfn") === true;
 
-// Determine if a SAFE is an MFN variant
-const isMFN = (safe: SAFENote): boolean => {
-  if (safe.conversionType === "mfn" || safe.conversionType === "ycmfn" || safe.sideLetters?.includes("mfn")) {
-    return true;
-  }
-  return false;
-}
+// Resolve one complete later SAFE package. The round PPS makes cap and
+// discount packages directly comparable; equal prices retain the earliest.
+export const resolveMFNElections = (
+  safes: SAFENote[],
+  preShares: number,
+  postShares: number,
+  roundPPS: number,
+): EffectiveSAFE[] => safes.map((safe, index) => {
+  if (!isMFN(safe)) return { ...safe };
 
-// Find the lowest cap among subsequent post-money SAFEs.
-// This implements the MFN side-letter logic.
-const getMFNCapAfter = (rows: SAFENote[], idx: number): number => {
-  return (
-    rows.slice(idx + 1).reduce((val, row) => {
-      // Ignore other MFNs — they also don't have a cap yet
-      if (isMFN(row)) {
-        return val;
-      }
-      // Ignore pre-money SAFEs for MFN cap purposes
-      // (YC MFNs are post-money by convention)
-      if (row.conversionType === "pre") {
-        return val;
-      }
-      // If we haven't found a cap yet, take this one
-      if (val === 0) {
-        return row.cap;
-      }
-      // Otherwise keep the lowest cap
-      if (val > 0 && row.cap > 0 && row.cap < val) {
-        return row.cap;
-      }
-      return val;
-    }, 0) ?? 0
-  );
-};
-
-// Returns the effective cap for a SAFE, applying MFN logic if needed
-export const getCapForSafe = (idx: number, safes: SAFENote[]): number => {
-  const safe = safes[idx];
-  if (isMFN(safe)) {
-    return getMFNCapAfter(safes, idx);
-  }
-  return safe.cap;
-};
-
-// Apply MFN caps to all SAFEs in the list.
-// This mutates the cap field on MFN SAFEs.
-export const populateSafeCaps = (safeNotes: SAFENote[]): SAFENote[] => {
-  return safeNotes.map((safe, idx): SAFENote => {
-    if (isMFN(safe)) {
-      const cap = getCapForSafe(idx, safeNotes);
-       return { ...safe, cap }
+  let best: { safe: SAFENote; index: number; price: number } | undefined;
+  for (let later = index + 1; later < safes.length; later++) {
+    const candidate = safes[later];
+    if (isMFN(candidate)) continue;
+    if (candidate.conversionType === "pre") {
+      throw new CalculationError(
+        "UNSUPPORTED_TERMS",
+        "an MFN SAFE cannot adopt a later pre-money SAFE package",
+      );
     }
-    return {...safe}
-  })
-}
+    const price = safeConvert(
+      { ...candidate, conversionType: "post" },
+      preShares,
+      postShares,
+      roundPPS,
+    );
+    if (!best || price < best.price) {
+      best = { safe: candidate, index: later, price };
+    }
+  }
+
+  if (!best) return { ...safe };
+  return {
+    ...safe,
+    cap: best.safe.cap,
+    discount: best.safe.discount,
+    conversionType: "post",
+    electionSourceIndex: best.index,
+    electionSourceName: best.safe.name,
+  };
+});
+
+// populateSafeCaps is the compatibility helper for price-free estimates. It
+// also elects a complete package, but its cap-first ranking is provisional.
 
 // Sum the shares all SAFEs convert to, given the priced-round parameters.
 // This is called inside the iterative solver.
@@ -877,7 +882,7 @@ export const buildEstimatedPreRoundCapTable = (
   // Pre-money shares = all common shares (used for pre-money SAFE estimate)
   const preMoneyShares = commonShareholders.reduce((acc, s) => acc + s.shares, 0);
 
-  // Apply MFN caps
+  // Apply provisional, estimate-only MFN package elections
   const safeNotes = populateSafeCaps(
     stakeHolders.filter((s) => s.type === CapTableRowType.Safe) as SAFENote[]
   )
@@ -970,7 +975,7 @@ export const buildEstimatedPreRoundCapTable = (
         ...safe,
         ownershipError: {
           type: "caveat" as const,
-          reason: "For an Uncapped MFN the cap is set to the lowest cap in subsequent SAFE's. You can re-order the SAFEs using the reorder button on the left.",
+          reason: "MFN ownership is provisional because the future priced-round PPS can change which complete later cap or discount package is most favorable. Confirm that the SAFEs are in chronological order.",
         },
       }
     }
@@ -1302,7 +1307,7 @@ For **priced round**:
 
 #### Step 3: Interactive follow-ups for complex items
 
-- **MFN ordering**: "You have an MFN SAFE. The order matters — it looks at subsequent SAFEs for the lowest cap. Is this the correct order? [list SAFEs]"
+- **MFN ordering**: "You have an MFN SAFE. The order matters because it may elect one complete package of terms from a later SAFE. Is this the chronological order? [list SAFEs]"
 - **Option pool**: "What target option pool % do you want post-round? (Common: 10%)"
 - **Discounts**: "I see a discount on a SAFE. Note: I can flag this, but exact ownership requires a priced round."
 
@@ -1401,7 +1406,7 @@ const bestFit = fitConversion(
 5. **Multiple Series rounds**: Unsupported. Treat all opening holders as the
    current snapshot and model only the immediate upcoming financing event.
 
-6. **Re-ordering SAFEs for MFN**: If the user has MFNs, ask them to confirm the chronological order. The MFN looks at *subsequent* SAFEs only.
+6. **Re-ordering SAFEs for MFN**: If the user has MFNs, ask them to confirm the chronological order. The MFN considers *subsequent* SAFEs only and elects one later instrument's complete terms; it does not mix terms across instruments.
 
 ---
 
