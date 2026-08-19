@@ -1,190 +1,207 @@
 # @1984vc/cap-table
 
-Understand who owns what today—and what happens to everyone’s ownership when
-you raise your next round.
+Model your cap table when the math stops being obvious.
 
-This is the calculation engine behind the free
-[1984 Ventures Cap Table Worksheet](https://startup-finance.1984.vc/). It is
-designed for founders modeling an early-stage cap table with issued shares,
-unused options, SAFEs, a priced financing, and an option-pool refresh.
+A 50/50 founder split is easy. The hard part starts when you add issued
+options, an unused pool, several SAFEs with different caps, YC terms, an MFN
+side letter, a priced round, and an investor-requested option-pool refresh.
+Those terms interact recursively, and small PPS or share-rounding differences
+can change the final ownership.
 
-The examples below come from
-[Cap Table 101](https://1984.vc/docs/founders-handbook/cap-table-101). The
-[original Markdown](https://1984.vc/docs/founders-handbook/cap-table-101.md)
-is also available if you want the full explanation of the math.
+`@1984vc/cap-table` gives an AI agent or application a deterministic,
+well-tested calculation engine for that work. It powers the free
+[1984 Ventures Cap Table Worksheet](https://startup-finance.1984.vc/).
 
-## What can I model?
+## Use it with an AI coding agent
 
-The library helps answer practical questions such as:
+### Install the cap-table skill
 
-- What percentage does each founder own today?
-- How much will a seed or Series A investor own?
-- How much will the financing dilute the founders?
-- What happens when the investor asks for a 10% option pool?
-- What will outstanding SAFEs own before and after the priced round?
-- How much of the option pool is still available for future hires?
-
-It models your current ownership snapshot plus one upcoming financing event.
-For a later round, use the post-financing shares as the next starting cap table.
-It is not a historical financing ledger or a liquidation-waterfall model.
-
-## Start with your current cap table
-
-Two founders each receive 1,000,000 shares, so they each own 50%:
+Install the skill so a compatible agent knows what to ask, which command to
+run, and how to explain the result:
 
 ```bash
-npx @1984vc/cap-table existing '{
-  "common": [
-    { "name": "Founder A", "shares": 1000000 },
-    { "name": "Founder B", "shares": 1000000 }
-  ]
-}'
+npx skills add 1984vc/cap-table
 ```
 
-| Holder | Shares | Ownership |
-|---|---:|---:|
-| Founder A | 1,000,000 | 50% |
-| Founder B | 1,000,000 | 50% |
-| Total | 2,000,000 | 100% |
+Then ask:
 
-The command returns structured JSON with `common`, `optionsPool`, and `total`
-so it can feed a spreadsheet, application, or AI assistant.
+```text
+Help me model my cap table. I have founders, an existing option pool,
+several SAFEs, and proposed terms for my next priced round.
+```
 
-## Model a seed round
+The skill uses the hosted
+[Cap Table 101 Markdown](https://1984.vc/docs/founders-handbook/cap-table-101.md)
+for founder-facing concepts and uses this package for the actual math.
 
-Now suppose an investor puts in $2 million at an $8 million pre-money
-valuation. The post-money valuation is $10 million, so the investor buys 20%:
+### Paste this into a CLI agent
+
+You can also point Codex, Claude Code, Cursor, or another command-line coding
+agent directly at the project:
+
+```text
+Use https://github.com/1984vc/cap-table to help me model my cap table.
+Ask me for my current shareholders and share counts, issued and unused
+options, every SAFE in chronological order, and the proposed priced-round
+and option-pool terms. Use the package's npx CLI for the calculations,
+then explain the ownership before and after the financing.
+```
+
+The agent can run the calculator without cloning or installing the library:
+
+```bash
+npx @1984vc/cap-table priced-round ./scenario.json
+```
+
+## The kind of scenario this tool is for
+
+Consider a company with:
+
+- Two founders holding 4,500,000 shares each.
+- 250,000 issued employee options.
+- 750,000 still available in the option pool.
+- Five outstanding SAFEs:
+  - YC 7% for $125,000.
+  - YC MFN for $375,000.
+  - $750,000 at a $10M post-money cap.
+  - $475,000 at a $10M post-money cap.
+  - $500,000 at a $13M post-money cap.
+- A proposed $4M priced round at a $25M pre-money valuation.
+- A request to refresh the available option pool to 10% after the financing.
+
+Before the SAFEs and priced round, the founders each own 45% of the fully
+diluted opening cap table. What they own afterward is not a one-line dilution
+calculation: the SAFE shares, round PPS, Series shares, and pool refresh all
+depend on one another.
+
+Run the complete scenario:
 
 ```bash
 npx @1984vc/cap-table priced-round '{
-  "preMoneyValuation": 8000000,
+  "preMoneyValuation": 25000000,
   "common": [
-    { "name": "Founder A", "shares": 1000000 },
-    { "name": "Founder B", "shares": 1000000 }
+    { "name": "Founder A", "shares": 4500000 },
+    { "name": "Founder B", "shares": 4500000 },
+    { "name": "Issued Options", "shares": 250000 },
+    {
+      "name": "Available Option Pool",
+      "shares": 750000,
+      "commonType": "unusedOptions"
+    }
+  ],
+  "safes": [
+    {
+      "name": "YC 7%",
+      "investment": 125000,
+      "conversionType": "yc7p"
+    },
+    {
+      "name": "YC MFN",
+      "investment": 375000,
+      "conversionType": "post",
+      "sideLetters": ["mfn"]
+    },
+    {
+      "name": "1984 Ventures",
+      "investment": 750000,
+      "cap": 10000000,
+      "conversionType": "post"
+    },
+    {
+      "name": "Benchmark",
+      "investment": 475000,
+      "cap": 10000000,
+      "conversionType": "post"
+    },
+    {
+      "name": "Follow-on SAFE",
+      "investment": 500000,
+      "cap": 13000000,
+      "conversionType": "post"
+    }
   ],
   "seriesInvestors": [
-    { "name": "Seed Investor", "investment": 2000000 }
-  ],
-  "targetOptionsPct": 0
-}'
-```
-
-The round price is $4 per share and the investor receives 500,000 shares:
-
-| Holder | Before | After |
-|---|---:|---:|
-| Founder A | 50% | 40% |
-| Founder B | 50% | 40% |
-| Seed Investor | — | 20% |
-
-The investor owns 20%, and each founder’s original stake is diluted by 20%:
-`50% × (1 - 20%) = 40%`.
-
-## See the effect of an option-pool request
-
-Investors often ask the company to reserve options for future hires as part of
-the financing. Set `targetOptionsPct` to the desired post-financing pool:
-
-```bash
-npx @1984vc/cap-table priced-round '{
-  "preMoneyValuation": 8000000,
-  "common": [
-    { "name": "Founder A", "shares": 1000000 },
-    { "name": "Founder B", "shares": 1000000 }
-  ],
-  "seriesInvestors": [
-    { "name": "Seed Investor", "investment": 2000000 }
+    { "name": "Series A Lead", "investment": 4000000 }
   ],
   "targetOptionsPct": 0.10
 }'
 ```
 
-| Holder | Ownership after financing |
-|---|---:|
-| Founder A | 35% |
-| Founder B | 35% |
-| Seed Investor | 20% |
-| Available option pool | 10% |
+The reconciled result is:
 
-The investor still receives 20%, but the founders absorb the additional pool
-dilution. This is why experienced founders negotiate ownership and option-pool
-size—not valuation alone.
+| Holder | Final shares | Final ownership |
+|---|---:|---:|
+| Founder A | 4,500,000 | 26.54% |
+| Founder B | 4,500,000 | 26.54% |
+| Issued Options | 250,000 | 1.47% |
+| YC 7% | 956,884 | 5.64% |
+| YC MFN | 512,610 | 3.02% |
+| 1984 Ventures | 1,025,220 | 6.05% |
+| Benchmark | 649,306 | 3.83% |
+| Follow-on SAFE | 525,756 | 3.10% |
+| Series A Lead | 2,338,415 | 13.79% |
+| Available Option Pool | 1,695,354 | 10.00% |
+| **Total** | **16,953,545** | **100.00%** |
 
-Granted employee shares belong in `common` like any other issued shares.
-Unissued options should be marked as the available pool:
+The useful answers are not just the final percentages:
 
-```json
-{
-  "name": "Available Option Pool",
-  "shares": 250000,
-  "commonType": "unusedOptions"
-}
-```
+- The round PPS is `$1.71056` after solving all conversions and the pool refresh.
+- The YC 7% SAFE receives exactly 7% immediately before the new Series shares
+  and pool increase dilute it to 5.64% post-financing.
+- The YC MFN elects the later $10M post-money SAFE package.
+- Refreshing the existing 750,000-share pool to 10% requires 945,354 additional
+  options.
+- The two founders move from 90% combined ownership to 53.09%.
+- The final legal share counts reconcile exactly to 16,953,545 shares.
 
-The output always reports those unissued shares separately as `optionsPool`.
-Moving a grant from the available pool to an employee does not increase the
-fully diluted share count and therefore does not dilute the other holders.
+This is the division of labor that works well with AI: let the agent gather the
+facts, explore scenarios, and explain the tradeoffs; let a tested financial
+model perform the recursive calculation and legal rounding.
 
-## Add outstanding SAFEs
+## What the agent will need from you
 
-If you have raised on SAFEs but do not yet know the terms of the next priced
-round, use `estimated-pre-round`:
+For the best result, have these inputs available:
 
-```bash
-npx @1984vc/cap-table estimated-pre-round '{
-  "common": [
-    { "name": "Founder A", "shares": 1000000 },
-    { "name": "Founder B", "shares": 1000000 }
-  ],
-  "safes": [
-    {
-      "name": "Seed SAFE",
-      "investment": 500000,
-      "cap": 5000000,
-      "conversionType": "post"
-    }
-  ]
-}'
-```
+1. Every current holder and their issued shares.
+2. Issued employee options and the unused option pool as separate amounts.
+3. Every SAFE in chronological order, including investment, cap, discount,
+   conversion type, and side letters.
+4. The proposed pre-money valuation and each new investor's check size.
+5. The target post-financing option-pool percentage.
 
-A capped post-money SAFE’s estimated pre-round ownership is generally its
-investment divided by its cap—in this example, 10%. Discounts and MFN terms may
-depend on the future round price, so estimates that rely on assumptions include
-a `caveat`.
+SAFE order matters for MFN elections. If a term is unknown, say so—the
+`estimated-pre-round` command marks assumptions and unavailable calculations
+instead of presenting them as exact.
 
-Once the priced-round valuation and investment are known, use `pre-round` to
-see ownership immediately before the new money and `priced-round` to see the
-fully diluted ownership after the financing.
+## Choose the right command
 
-## Choose a command
-
-| Command | Question it answers |
+| Command | Use it when |
 |---|---|
-| `existing` | Who owns the company today? |
-| `estimated-pre-round` | What might the SAFEs own before round terms are known? |
-| `pre-round` | What do existing holders and converting SAFEs own immediately before the new investment? |
-| `priced-round` | What does the fully diluted cap table look like after the financing and pool refresh? |
+| `existing` | You want a clean view of current issued ownership and the available pool |
+| `estimated-pre-round` | SAFEs are outstanding but the priced-round terms are not known |
+| `pre-round` | The next-round terms are known and you want ownership after SAFE conversion but before new money |
+| `priced-round` | You want the complete post-financing cap table, including Series shares and the refreshed pool |
 
-Input can be supplied as a JSON argument, piped through stdin, or read from a
-`.json` file:
+Pass input as inline JSON, through stdin, or from a file:
 
 ```bash
 npx @1984vc/cap-table priced-round ./scenario.json
 cat scenario.json | npx @1984vc/cap-table priced-round
+npx @1984vc/cap-table --help
 ```
 
-Run `npx @1984vc/cap-table --help` for the command summary.
+## Understand the output
 
-## Understanding the result
-
-A priced-round command returns:
+A priced-round calculation returns:
 
 ```json
 {
   "conversion": {
-    "pps": 4,
-    "totalShares": 2500000,
-    "additionalOptions": 0
+    "pps": 1.71056,
+    "safeConversions": [],
+    "seriesInvestorShares": [],
+    "additionalOptions": 945354,
+    "totalShares": 16953545
   },
   "capTable": {
     "common": [],
@@ -196,20 +213,22 @@ A priced-round command returns:
 }
 ```
 
+- `conversion` records the PPS, controlling SAFE terms, investor allocations,
+  pool increase, and exact reconciled share totals.
 - `common` contains founders, employees, and other issued opening shares.
-- `safes` contains the shares issued when SAFEs convert.
-- `series` contains investors purchasing shares in this financing.
-- `optionsPool` contains unissued shares reserved for future grants.
-- `total` reconciles all shares to 100%.
-- `conversion` explains the round PPS, new shares, SAFE conversions, and pool
-  increase used to produce the cap table.
+- `safes` contains each SAFE's effective terms and converted shares.
+- `series` contains the investors purchasing shares in this financing.
+- `optionsPool` is the unissued pool reserved for future grants.
+- `total` reconciles all rows to 100%.
 
 Share counts are floored and PPS is rounded up to five decimal places by
 default, matching common legal spreadsheet conventions. Invalid or unsupported
 transactions fail with a stable error code instead of returning a plausible but
 incorrect cap table.
 
-## Use it from TypeScript
+## Use the library directly
+
+Applications can call the same engine from TypeScript:
 
 ```bash
 npm install @1984vc/cap-table
@@ -217,91 +236,42 @@ npm install @1984vc/cap-table
 
 ```typescript
 import {
-  CapTableRowType,
-  CommonRowType,
   buildPricedRoundCapTable,
   fitConversion,
 } from "@1984vc/cap-table";
 
-const openingCapTable = [
-  {
-    name: "Founder A",
-    shares: 1_000_000,
-    type: CapTableRowType.Common,
-    commonType: CommonRowType.Shareholder,
-  },
-  {
-    name: "Founder B",
-    shares: 1_000_000,
-    type: CapTableRowType.Common,
-    commonType: CommonRowType.Shareholder,
-  },
-];
-
 const conversion = fitConversion(
-  8_000_000,   // pre-money valuation
-  2_000_000,   // issued opening shares
-  [],          // outstanding SAFEs
-  0,           // currently unused options
-  0.10,        // desired post-financing option pool
-  [2_000_000], // investments in this priced round
+  preMoneyValuation,
+  issuedShares,
+  safes,
+  unusedOptions,
+  targetOptionsPct,
+  seriesInvestments,
 );
 
-const result = buildPricedRoundCapTable(conversion, [
-  ...openingCapTable,
-  {
-    name: "Seed Investor",
-    investment: 2_000_000,
-    type: CapTableRowType.Series,
-  },
-]);
+const capTable = buildPricedRoundCapTable(conversion, stakeholders);
 ```
-
-The primary library functions are:
 
 | Function | Purpose |
 |---|---|
 | `buildExistingShareholderCapTable` | Calculate the current ownership snapshot |
 | `buildEstimatedPreRoundCapTable` | Estimate SAFE ownership without priced-round terms |
-| `fitConversion` | Solve the PPS, SAFE conversions, pool refresh, and investor shares |
-| `buildPreRoundCapTable` | Build the exact cap table immediately before new money |
+| `fitConversion` | Solve SAFE conversions, PPS, investor shares, and the pool refresh |
+| `buildPreRoundCapTable` | Build exact ownership immediately before new money |
 | `buildPricedRoundCapTable` | Build the fully diluted post-financing cap table |
 
-All public inputs are validated. Failures throw `CalculationError` with one of
-these codes:
+All public inputs are validated. Failures throw `CalculationError` with
+`INVALID_INPUT`, `UNSUPPORTED_TERMS`, `CONFLICTING_TRANSACTION_DATA`, or
+`UNRECONCILED_ROUNDING`.
 
-- `INVALID_INPUT`
-- `UNSUPPORTED_TERMS`
-- `CONFLICTING_TRANSACTION_DATA`
-- `UNRECONCILED_ROUNDING`
+## Model boundaries
 
-Pro-rata participation is not yet represented by the input model and is
-rejected rather than silently omitted.
-
-## Install the agent skill
-
-The repository includes a skill that teaches coding agents how to gather cap
-table inputs, run the calculator, and explain the result in founder-friendly
-language:
-
-```bash
-npx skills add 1984vc/cap-table
-```
-
-The skill uses the hosted
-[Cap Table 101 Markdown](https://1984.vc/docs/founders-handbook/cap-table-101.md)
-as its founder-facing reference.
-
-## Migrating to the unified output
-
-- `existing` now returns an object; read its rows from `result.common`.
-- `optionsPool` replaces `refreshedOptionsPool` and is present in every view.
-- Input rows with `commonType: "unusedOptions"` are aggregated into
-  `optionsPool` and are not returned in `common`.
-- `SeriesInvestor.round` has been removed because one call models one upcoming
-  financing event.
-- Invalid transactions throw `CalculationError`; builders no longer return
-  ownership rows with `type: "error"`.
+- One calculation models the current cap table plus one upcoming financing
+  event. Use its final shares as the opening snapshot for a later round.
+- Pro-rata participation is not yet represented and is rejected rather than
+  silently omitted.
+- The package models ownership and dilution, not liquidation preferences,
+  waterfall proceeds, taxes, or legal compliance.
 
 ## Development
 
