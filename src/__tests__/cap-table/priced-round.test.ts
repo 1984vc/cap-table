@@ -54,13 +54,11 @@ const seriesFixture: SeriesInvestor[] = [
     name: "1984",
     investment: 3_000_000,
     type: CapTableRowType.Series,
-    round: 1,
   },
   {
     name: "Venture Fund 2",
     investment: 1_000_000,
     type: CapTableRowType.Series,
-    round: 1,
   },
 ]
 
@@ -74,12 +72,12 @@ describe("Building a priced-round cap table with common shareholders, SAFE notes
       seriesFixture[0].investment,
       seriesFixture[1].investment,
     ], DEFAULT_ROUNDING_STRATEGY);
-    const {common, safes, series, refreshedOptionsPool, total} = buildPricedRoundCapTable(pricedConversion, [...commonFixture, ...safeFixture, ...seriesFixture]);
+    const {common, safes, series, optionsPool, total} = buildPricedRoundCapTable(pricedConversion, [...commonFixture, ...safeFixture, ...seriesFixture]);
     expect(common.length).toEqual(3); // We drop unused options from the common stockholders and add it back as Refreshed Options
     expect(safes.length).toEqual(2);
     expect(series.length).toEqual(2);
 
-    crossCheckCapTableResults([...common, ...safes, ...series, refreshedOptionsPool], total);
+    crossCheckCapTableResults([...common, ...safes, ...series, optionsPool], total);
   });
 
   test("an MFN SAFE adopts the lowest subsequent post-money SAFE cap", () => {

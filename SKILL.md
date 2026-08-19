@@ -11,6 +11,10 @@
 
 > **Purpose:** Enable an agent to build an interactive cap-table calculator inside a chat interface.  
 > **Source:** This skill documents the complete mathematical model, the annotated reference implementation, and conversation patterns used by the [`@1984vc/cap-table`](https://github.com/1984vc/cap-table) TypeScript library.
+> **Founder reference:** Use the hosted [Cap Table 101 Markdown](https://1984.vc/docs/founders-handbook/cap-table-101.md)
+> as the source of truth for founder-facing terminology, examples, and the
+> intended workflow: understand today's ownership, then model the dilution from
+> one upcoming financing and its option-pool refresh.
 
 ---
 
@@ -233,12 +237,17 @@ These additional options dilute everyone (founders, SAFEs, Series investors) pro
 
 Legal cap tables use specific rounding conventions:
 
-- **Share counts** are floored (`Math.floor`) by default. You can't issue fractional shares.
+- **Share counts** are floored (`Math.floor`) by default. Fractional opening
+  shares are accepted only when both share-rounding flags are explicitly disabled.
 - **Price per share (PPS)** is rounded **up** to a configurable number of decimal places (default: 5). This slightly favors the company by making each share more expensive, reducing the number of shares issued.
 
 These rounding choices affect the iteration because a small change in PPS can change the floored share count, which changes the total, which changes the PPS.
 
 ### 1.7 Cap Table Workflows Summary
+
+These workflows compare a current ownership snapshot with one upcoming
+financing event, matching the founder scenarios in 1984's Cap Table 101. They
+do not form a historical multi-round ledger.
 
 | Workflow | When to Use | Key Function |
 |----------|-------------|--------------|
@@ -253,7 +262,8 @@ These rounding choices affect the iteration because a small change in PPS can ch
 
 Below is the **complete, verbatim source code** from the `@1984vc/cap-table` library. It is annotated with mathematical explanations so an agent can understand *why* each line works, not just *what* it does.
 
-> **Note:** This code can be pasted directly into a TypeScript/JavaScript chat tool. If `npm` is available, you may alternatively run:
+> **Note:** The excerpts below explain the model; the installed package's exported
+> types are authoritative. If `npm` is available, run:
 > ```bash
 > npm install @1984vc/cap-table
 > ```
@@ -270,7 +280,7 @@ export enum CapTableRowType {
   Safe = "safe",              // SAFE note investor
   Series = "series",          // Priced round investor
   Total = "total",            // Sum row
-  RefreshedOptions = "refreshedOptions", // The post-round option pool
+  OptionsPool = "optionsPool", // Available/reserved options, separate from issued shares
 }
 
 // Common stock can be a shareholder or unused options
@@ -309,7 +319,6 @@ export type SAFENote = BaseStake & {
 export type SeriesInvestor = BaseStake & {
   investment: number;
   type: CapTableRowType.Series;
-  round: number;               // 0-indexed round number
 }
 
 // Union of all possible inputs
@@ -317,7 +326,7 @@ export type StakeHolder = CommonStockholder | SAFENote | SeriesInvestor;
 
 // Error states for ownership calculations
 export type CapTableOwnershipError = {
-  type: "tbd" | "error" | "caveat";
+  type: "tbd" | "caveat";
   reason?: string
 }
 
@@ -362,13 +371,13 @@ export type SeriesCapTableRow = BaseCapTableRow & {
   ownershipPct: number;
 };
 
-export type RefreshedOptionsCapTableRow = BaseCapTableRow & {
-  type: CapTableRowType.RefreshedOptions;
+export type OptionsPoolCapTableRow = BaseCapTableRow & {
+  type: CapTableRowType.OptionsPool;
   shares: number;
-  ownershipPct: number;
+  ownershipPct?: number;
 };
 
-export type CapTableRow = TotalCapTableRow | SafeCapTableRow | SeriesCapTableRow | CommonCapTableRow | RefreshedOptionsCapTableRow;
+export type CapTableRow = TotalCapTableRow | SafeCapTableRow | SeriesCapTableRow | CommonCapTableRow | OptionsPoolCapTableRow;
 ```
 
 
@@ -415,44 +424,47 @@ export const roundToPlaces = (num: number, places: number): number => {
 ### 2.3 Number Formatting (`src/utils/numberFormatting.ts`)
 
 ```typescript
-// Parses strings like "$1.5M", "1,000,000", "$50K" into numbers
+// Parses strings like "$1.5M", "1,000,000", "$50K" into numbers.
+// Supports K/M/B/T suffixes; returns NaN for unrecognizable input.
 export const stringToNumber = (value: string | number): number => {
   if (typeof value === "number") {
     return value;
-  } else {
-    // Strip non-numeric characters except decimal and negative
-    const cleanedValue = value.replace(/[^-\d.]/g, "");
-    return cleanedValue.includes(".")
-      ? parseFloat(cleanedValue)
-      : parseInt(cleanedValue, 10);
   }
+  const cleaned = value.trim().replace(/[,$%\s_]/g, "");
+  const match = cleaned.match(/^(-?)(\d+(?:\.\d+)?)([KMBT])?$/i);
+  if (!match) return NaN;
+  const sign = match[1] === "-" ? -1 : 1;
+  const base = parseFloat(match[2]);
+  const suffix = (match[3] ?? "").toUpperCase();
+  return sign * base * ({ K: 1e3, M: 1e6, B: 1e9, T: 1e12 }[suffix] ?? 1);
 };
 
-// Formats as "$1,234,567" or "$1,500.50"
+// Formats as "$1,234,567.89" (up to 2 decimals, drops trailing zeros)
 export const formatUSDWithCommas = (value: number | string) => {
   if (typeof value === "string") {
     value = stringToNumber(value);
   }
-  const maximumFractionDigits = value < 1000 ? 2 : 0
+  const minimumFractionDigits = value % 1 !== 0 ? 2 : 0;
   return value.toLocaleString("en-US", {
     style: "currency",
     currency: "USD",
-    maximumFractionDigits,
+    minimumFractionDigits,
+    maximumFractionDigits: 2,
   });
 };
 
-// Formats as "$1.5M" or "$50K"
+// Formats as "$1.5M", "$50K", "$999" (compact, honors negatives)
 export const shortenedUSD = (value: number | string) => {
   if (typeof value === "string") {
     value = stringToNumber(value);
   }
-  if (value >= 1_000_000) {
-    return "$" + (value / 1_000_000).toFixed(1) + "M";
-  } else if (value >= 1_000) {
-    return "$" + (value / 1_000).toFixed(1) + "K";
-  } else {
-    return "$" + value.toString();
-  }
+  if (!Number.isFinite(value)) return String(value);
+  const sign = value < 0 ? "-" : "";
+  const formatted = Math.abs(value).toLocaleString("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  });
+  return sign + "$" + formatted;
 };
 ```
 
@@ -568,19 +580,10 @@ export const safeConvert = (
 
 const sumArray = (arr: number[]): number => arr.reduce((a, b) => a + b, 0);
 
-// Validate SAFE inputs and return an error if anything is invalid.
-// Currently checks: investment cannot equal or exceed cap.
+// Validate SAFE inputs. Invalid terms throw a typed CalculationError.
 export const checkSafeNotesForErrors = (safeNotes: SAFENote[]): CapTableOwnershipError | undefined => {
-  let ownershipError: CapTableOwnershipError | undefined = undefined
-  safeNotes.forEach((safe) => {
-    if (safe.investment >= safe.cap && safe.cap !== 0) {
-      ownershipError = {
-        type: 'error',
-        reason: "Investment is greater than Cap"
-      }
-    }
-  })
-  return ownershipError
+  validateSafes(safeNotes);
+  return undefined;
 }
 ```
 
@@ -793,15 +796,18 @@ export const fitConversion = (
 
 
 
-### 2.6 Error-State Builders (`src/cap-table/error.ts`)
+### 2.6 TBD-State Builder (`src/cap-table/error.ts`)
+
+Invalid input throws a typed `CalculationError`. Output-level ownership states
+are reserved for estimates that are `tbd` or carry a `caveat`.
 
 ```typescript
-import { SAFENote, CommonStockholder, CommonCapTableRow, SafeCapTableRow, TotalCapTableRow, CapTableOwnershipError, CapTableRowType } from "./types";
+import { SAFENote, CommonStockholder, CommonCapTableRow, SafeCapTableRow, CapTableOwnershipError, CapTableRowType, PreRoundCapTable } from "./types";
 
 // When all SAFEs are uncapped, we can't estimate ownership.
 // Return a cap table with everything marked "tbd".
 export const buildTBDPreRoundCapTable = (safeNotes: SAFENote[], common: CommonStockholder[]): 
-  {common: CommonCapTableRow[], safes: SafeCapTableRow[], total: TotalCapTableRow} => {
+  PreRoundCapTable => {
   const totalInvestment = safeNotes.reduce((acc, investor) => acc + investor.investment, 0);
   const totalShares = common.reduce((acc, common) => acc + common.shares, 0)
   const ownershipError: CapTableOwnershipError = {
@@ -839,60 +845,21 @@ export const buildTBDPreRoundCapTable = (safeNotes: SAFENote[], common: CommonSt
   }
 }
 
-// When input is invalid (e.g., investment ≥ cap), mark everything as error.
-export const buildErrorPreRoundCapTable = (safeNotes: SAFENote[], common: CommonStockholder[]): 
-  {common: CommonCapTableRow[], safes: SafeCapTableRow[], total: TotalCapTableRow} => {
-  const totalInvestment = safeNotes.reduce((acc, investor) => acc + investor.investment, 0);
-  const totalShares = common.reduce((acc, common) => acc + common.shares, 0)
-  const ownershipError: CapTableOwnershipError = { type: "error" }
-
-  const safeCapTable: SafeCapTableRow[] = safeNotes.map((safe) => {
-    const safeOwnershipError = {...ownershipError}
-    if (safe.investment >= safe.cap && safe.cap !== 0) {
-      safeOwnershipError.reason = "SAFE's investment cannot equal or exceed the Cap"
-    }
-    return {
-      name: safe.name,
-      cap: safe.cap,
-      discount: safe.discount,
-      ownershipError: safeOwnershipError,
-      investment: safe.investment,
-      type: CapTableRowType.Safe,
-    }
-  })
-
-  const commonCapTable: CommonCapTableRow[] = common.map((stockholder) => ({
-    name: stockholder.name,
-    shares: stockholder.shares,
-    ownershipError,
-    type: CapTableRowType.Common,
-    commonType: stockholder.commonType,
-  }))
-
-  return {
-    common: commonCapTable,
-    safes: safeCapTable,
-    total: {
-      name: "Total",
-      shares: totalShares,
-      investment: totalInvestment,
-      ownershipPct: 1,
-      type: CapTableRowType.Total,
-    },
-  }
-}
 ```
 
 
 
 ### 2.7 Pre-Round Builders (`src/cap-table/pre-round.ts`)
 
+The calculation excerpts are abridged. Production output always separates
+unused options into `optionsPool` and returns the `PreRoundCapTable` shape.
+
 ```typescript
 import { BestFit, DEFAULT_ROUNDING_STRATEGY } from "../conversion-solver";
-import { checkSafeNotesForErrors, populateSafeCaps } from "../safe-calcs";
+import { populateSafeCaps } from "../safe-calcs";
 import { RoundingStrategy, roundShares } from "../utils/rounding";
-import { SAFENote, CommonStockholder, CommonCapTableRow, SafeCapTableRow, TotalCapTableRow, StakeHolder, CapTableRowType } from "./types";
-import { buildErrorPreRoundCapTable, buildTBDPreRoundCapTable } from "./error";
+import { SAFENote, CommonStockholder, CommonCapTableRow, SafeCapTableRow, StakeHolder, CapTableRowType, PreRoundCapTable } from "./types";
+import { buildTBDPreRoundCapTable } from "./error";
 import { formatUSDWithCommas } from "../utils/numberFormatting";
 
 // Build a pre-round cap table BEFORE a priced round is known.
@@ -901,7 +868,7 @@ import { formatUSDWithCommas } from "../utils/numberFormatting";
 export const buildEstimatedPreRoundCapTable = (
   stakeHolders: StakeHolder[],
   roundingStrategy: RoundingStrategy = DEFAULT_ROUNDING_STRATEGY
-): {common: CommonCapTableRow[], safes: SafeCapTableRow[], total: TotalCapTableRow} => {
+): PreRoundCapTable => {
 
   const commonShareholders = stakeHolders.filter(
     (s) => s.type === CapTableRowType.Common
@@ -914,11 +881,6 @@ export const buildEstimatedPreRoundCapTable = (
   const safeNotes = populateSafeCaps(
     stakeHolders.filter((s) => s.type === CapTableRowType.Safe) as SAFENote[]
   )
-
-  // True error: investment ≥ cap
-  if (safeNotes.some((s) => s.cap !== 0 && s.cap <= s.investment)) {
-    return buildErrorPreRoundCapTable(safeNotes, [...commonShareholders])
-  }
 
   // Find the highest cap for estimation purposes
   const maxCap = safeNotes.reduce((max, s) => Math.max(max, s.cap), 0)
@@ -1048,7 +1010,7 @@ export const buildEstimatedPreRoundCapTable = (
 export const buildPreRoundCapTable = (
   pricedConversion: BestFit,
   stakeHolders: StakeHolder[]
-): {common: CommonCapTableRow[], safes: SafeCapTableRow[], total: TotalCapTableRow} => {
+): PreRoundCapTable => {
 
   const commonShareholders = stakeHolders.filter(
     (s) => s.type === CapTableRowType.Common
@@ -1064,10 +1026,6 @@ export const buildPreRoundCapTable = (
     - pricedConversion.additionalOptions;
 
   const totalInvestment = safeNotes.reduce((acc, s) => acc + s.investment, 0);
-
-  if (checkSafeNotesForErrors(safeNotes)) {
-    return buildErrorPreRoundCapTable(safeNotes, commonShareholders)
-  }
 
   const commonCapTable: CommonCapTableRow[] = commonShareholders.map((s) => ({
     name: s.name,
@@ -1114,7 +1072,7 @@ export const buildPreRoundCapTable = (
 ```typescript
 import { BestFit } from "../conversion-solver";
 import { roundShares } from "../utils/rounding";
-import { StakeHolder, CommonCapTableRow, SafeCapTableRow, SeriesCapTableRow, RefreshedOptionsCapTableRow, TotalCapTableRow, CapTableOwnershipError, CommonStockholder, SAFENote, SeriesInvestor, CapTableRowType, CommonRowType } from "./types";
+import { StakeHolder, CommonCapTableRow, SafeCapTableRow, SeriesCapTableRow, OptionsPoolCapTableRow, TotalCapTableRow, CommonStockholder, SAFENote, SeriesInvestor, CapTableRowType, CommonRowType } from "./types";
 
 // Build the FULL cap table including Series investors and refreshed options pool.
 export const buildPricedRoundCapTable = (
@@ -1124,12 +1082,11 @@ export const buildPricedRoundCapTable = (
   common: CommonCapTableRow[],
   safes: SafeCapTableRow[],
   series: SeriesCapTableRow[],
-  refreshedOptionsPool: RefreshedOptionsCapTableRow,
+  optionsPool: OptionsPoolCapTableRow,
   total: TotalCapTableRow,
-  error?: CapTableOwnershipError
 } => {
 
-  // Filter out unused options from common — they'll appear as refreshedOptionsPool
+  // Filter out unused options from common — they'll appear as optionsPool
   const commonShareholders = stakeHolders.filter(
     (s) => s.type === CapTableRowType.Common && s.commonType !== CommonRowType.UnusedOptions
   ) as CommonStockholder[];
@@ -1184,19 +1141,19 @@ export const buildPricedRoundCapTable = (
     }
   })
 
-  // Refreshed options pool
-  const refreshedOptionsPool: RefreshedOptionsCapTableRow = {
-    name: "Refreshed Options Pool",
+  // Available/reserved options pool
+  const optionsPool: OptionsPoolCapTableRow = {
+    name: "Options Pool",
     shares: pricedConversion.totalOptions,
     ownershipPct: pricedConversion.totalOptions / totalShares,
-    type: CapTableRowType.RefreshedOptions
+    type: CapTableRowType.OptionsPool
   }
 
   return {
     common: commonCapTable,
     safes: safeCapTable,
     series: seriesCapTable,
-    refreshedOptionsPool,
+    optionsPool,
     total: {
       name: "Total",
       shares: totalShares,
@@ -1204,7 +1161,6 @@ export const buildPricedRoundCapTable = (
       ownershipPct: 1,
       type: CapTableRowType.Total,
     },
-    error: undefined
   }
 }
 ```
@@ -1216,21 +1172,28 @@ export const buildPricedRoundCapTable = (
 ```typescript
 import { buildEstimatedPreRoundCapTable, buildPreRoundCapTable } from "./pre-round";
 import { buildPricedRoundCapTable } from "./priced-round";
-import { CommonStockholder, CommonCapTableRow, CapTableRowType } from "./types";
+import { CommonStockholder, CapTableRowType, CommonRowType, ExistingCapTable } from "./types";
 
 // Simplest case: just existing shareholders, no SAFEs, no rounds.
 export const buildExistingShareholderCapTable = (
   commonStockholders: CommonStockholder[]
-): CommonCapTableRow[] => {
+): ExistingCapTable => {
   const totalCommonShares = commonStockholders.reduce((acc, s) => acc + s.shares, 0);
-  return commonStockholders.map((s) => ({
+  const common = commonStockholders.filter((s) => s.commonType === CommonRowType.Shareholder).map((s) => ({
     id: s.id,
     name: s.name,
     shares: s.shares,
     ownershipPct: s.shares / totalCommonShares,
     type: CapTableRowType.Common,
     commonType: s.commonType,
-  }))
+  }));
+  const poolShares = commonStockholders.filter((s) => s.commonType === CommonRowType.UnusedOptions)
+    .reduce((total, s) => total + s.shares, 0);
+  return {
+    common,
+    optionsPool: { name: "Options Pool", shares: poolShares, ownershipPct: poolShares / totalCommonShares, type: CapTableRowType.OptionsPool },
+    total: { name: "Total", shares: totalCommonShares, investment: 0, ownershipPct: 1, type: CapTableRowType.Total },
+  };
 }
 
 export {
@@ -1388,7 +1351,7 @@ For users who want raw data:
   "common": [...],
   "safes": [...],
   "series": [...],
-  "refreshedOptionsPool": {...},
+  "optionsPool": {...},
   "total": {...}
 }
 ```
@@ -1408,7 +1371,7 @@ Always include a human-readable summary:
 
 | Goal | Call This | With These Inputs |
 |------|-----------|-------------------|
-| Existing ownership only | `buildExistingShareholderCapTable(commonStockholders)` | Array of `CommonStockholder` |
+| Existing ownership only | `buildExistingShareholderCapTable(commonStockholders)` | Array of `CommonStockholder`; returns `{ common, optionsPool, total }` |
 | Estimate SAFE ownership | `buildEstimatedPreRoundCapTable(stakeHolders)` | Array of `CommonStockholder` + `SAFENote` |
 | Exact pre-round ownership | `buildPreRoundCapTable(bestFit, stakeHolders)` | Output of `fitConversion` + stakeholders |
 | Full priced round | `buildPricedRoundCapTable(bestFit, stakeHolders)` | Output of `fitConversion` + stakeholders |
@@ -1433,9 +1396,10 @@ const bestFit = fitConversion(
 
 3. **100% option pool**: Mathematically possible but practically suspicious. Flag it.
 
-4. **Very small cap relative to investment**: Will trigger `error`. Catch it early.
+4. **Investment at or above cap**: Throws `CalculationError("INVALID_INPUT", ...)`. Catch it early.
 
-5. **Multiple Series rounds**: The library supports `round: number` on `SeriesInvestor`. Most chat tools will only model round 0 (the immediate next round).
+5. **Multiple Series rounds**: Unsupported. Treat all opening holders as the
+   current snapshot and model only the immediate upcoming financing event.
 
 6. **Re-ordering SAFEs for MFN**: If the user has MFNs, ask them to confirm the chronological order. The MFN looks at *subsequent* SAFEs only.
 

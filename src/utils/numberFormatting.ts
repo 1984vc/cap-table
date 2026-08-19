@@ -1,25 +1,35 @@
+const SUFFIX_FACTORS: Record<string, number> = {
+  K: 1e3,
+  M: 1e6,
+  B: 1e9,
+  T: 1e12,
+};
+
 export const stringToNumber = (value: string | number): number => {
   if (typeof value === "number") {
     return value;
-  } else {
-    // Remove anything that's not a digit or a period or negative sign
-    const cleanedValue = value.replace(/[^-\d.]/g, "");
-    // if it has a period, parseFloat, otherwise parseInt
-    return cleanedValue.includes(".")
-      ? parseFloat(cleanedValue)
-      : parseInt(cleanedValue, 10);
   }
+  const cleaned = value.trim().replace(/[,$%\s_]/g, "");
+  const match = cleaned.match(/^(-?)(\d+(?:\.\d+)?)([KMBT])?$/i);
+  if (!match) {
+    return NaN;
+  }
+  const sign = match[1] === "-" ? -1 : 1;
+  const base = parseFloat(match[2]);
+  const suffix = (match[3] ?? "").toUpperCase();
+  return sign * base * (SUFFIX_FACTORS[suffix] ?? 1);
 };
 
 export const formatUSDWithCommas = (value: number | string) => {
   if (typeof value === "string") {
     value = stringToNumber(value);
   }
-  const maximumFractionDigits = value < 1000 ? 2 : 0
+  const minimumFractionDigits = value % 1 !== 0 ? 2 : 0;
   return value.toLocaleString("en-US", {
     style: "currency",
     currency: "USD",
-    maximumFractionDigits,
+    minimumFractionDigits,
+    maximumFractionDigits: 2,
   });
 };
 
@@ -36,12 +46,13 @@ export const shortenedUSD = (value: number | string) => {
   if (typeof value === "string") {
     value = stringToNumber(value);
   }
-
-  if (value >= 1_000_000) {
-    return "$" + (value / 1_000_000).toFixed(1) + "M";
-  } else if (value >= 1_000) {
-    return "$" + (value / 1_000).toFixed(1) + "K";
-  } else {
-    return "$" + value.toString();
+  if (!Number.isFinite(value)) {
+    return String(value);
   }
+  const sign = value < 0 ? "-" : "";
+  const formatted = Math.abs(value).toLocaleString("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  });
+  return sign + "$" + formatted;
 };

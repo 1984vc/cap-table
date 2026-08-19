@@ -1,11 +1,13 @@
 import { describe, expect, test } from "vitest";
 import {
   buildEstimatedPreRoundCapTable,
+  buildExistingShareholderCapTable,
   buildPreRoundCapTable,
   CapTableRowType,
   CommonRowType,
   fitConversion,
   populateSafeCaps,
+  buildPricedRoundCapTable,
 } from "../index";
 import type { CommonStockholder, SAFENote } from "../index";
 
@@ -64,6 +66,53 @@ describe("known financial-model risks", () => {
     const [resolved] = populateSafeCaps([mfn, laterDiscountSafe]);
 
     expect(resolved.discount).toBe(0.2);
+  });
+
+  test("an MFN estimate is explicitly provisional when priced terms can elect a different package", () => {
+    const mfn = postSafe({ name: "MFN", investment: 375_000, cap: 0, sideLetters: ["mfn"] });
+    const capped = postSafe({ name: "Capped 30M", investment: 500_000, cap: 30_000_000 });
+    const discounted = postSafe({ name: "Discount 20%", investment: 500_000, cap: 0, discount: 0.2 });
+    const safes = [mfn, capped, discounted];
+    const estimate = buildEstimatedPreRoundCapTable([founders, ...safes]);
+    const conversion = fitConversion(10_000_000, founders.shares, safes, 0, 0, [10_000_000]);
+    const priced = buildPricedRoundCapTable(conversion, [
+      founders,
+      ...safes,
+      { name: "Lead", investment: 10_000_000, type: CapTableRowType.Series },
+    ]);
+
+    expect(estimate.safes[0].cap).toBe(30_000_000);
+    expect(estimate.safes[0].ownershipError?.type).toBe("caveat");
+    expect(estimate.safes[0].ownershipError?.reason).toContain("provisional");
+    expect(conversion.safeConversions[0].electionSourceName).toBe("Discount 20%");
+    expect(priced.safes[0].discount).toBe(0.2);
+    expect(priced.safes[0].cap).toBe(0);
+  });
+
+  test.each(["pre", "post"] as const)(
+    "a %s-money SAFE whose investment reaches its cap gets the specific diagnostic",
+    (conversionType) => {
+      expect(() => buildEstimatedPreRoundCapTable([
+        founders,
+        postSafe({ investment: 8_000_000, cap: 8_000_000, conversionType }),
+      ])).toThrow("safes[0].investment must be less than safes[0].cap");
+    },
+  );
+
+  test("fractional opening shares require share rounding to be explicitly disabled", () => {
+    expect(() => fitConversion(12_000_000, 9_000_000.5, [], 0, 0, [2_000_000]))
+      .toThrow("commonShares must be an integer when share rounding is enabled");
+
+    const noShareRounding = { roundPPSPlaces: -1 };
+    const conversion = fitConversion(
+      12_000_000, 9_000_000.5, [], 0, 0, [2_000_000], noShareRounding,
+    );
+    const existing = buildExistingShareholderCapTable([
+      { ...founders, shares: 9_000_000.5 },
+    ], noShareRounding);
+
+    expect(Number.isInteger(conversion.totalShares)).toBe(false);
+    expect(existing.total.shares).toBe(9_000_000.5);
   });
 
   test("aggregate post-money SAFE ownership of 100% is rejected", () => {

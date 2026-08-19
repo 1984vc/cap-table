@@ -3,7 +3,7 @@ export enum CapTableRowType {
   Safe = "safe",
   Series = "series",
   Total = "total",
-  RefreshedOptions = "refreshedOptions",
+  OptionsPool = "optionsPool",
 }
 
 export enum CommonRowType {
@@ -38,7 +38,6 @@ export type SAFENote = BaseStake & {
 export type SeriesInvestor = BaseStake & {
   investment: number;
   type: CapTableRowType.Series;
-  round: number;
 }
 
 export type StakeHolder = CommonStockholder | SAFENote | SeriesInvestor;
@@ -47,7 +46,7 @@ export type StakeHolder = CommonStockholder | SAFENote | SeriesInvestor;
 // Cap table return types below. These are the types of rows that can be in a cap table
 
 export type CapTableOwnershipError = {
-  type: "tbd" | "error" | "caveat";
+  type: "tbd" | "caveat";
   reason?: string
 }
 
@@ -90,11 +89,24 @@ export type SeriesCapTableRow = BaseCapTableRow & {
   ownershipPct: number;
 };
 
-export type RefreshedOptionsCapTableRow = BaseCapTableRow & {
-  type: CapTableRowType.RefreshedOptions;
+export type OptionsPoolCapTableRow = BaseCapTableRow & {
+  type: CapTableRowType.OptionsPool;
   shares: number;
-  ownershipPct: number;
+  ownershipPct?: number;
 };
 
+export type ExistingCapTable = {
+  common: CommonCapTableRow[];
+  optionsPool: OptionsPoolCapTableRow;
+  total: TotalCapTableRow;
+};
 
-export type CapTableRow = TotalCapTableRow | SafeCapTableRow | SeriesCapTableRow | CommonCapTableRow | RefreshedOptionsCapTableRow;
+export type PreRoundCapTable = ExistingCapTable & {
+  safes: SafeCapTableRow[];
+};
+
+export type PricedRoundCapTable = PreRoundCapTable & {
+  series: SeriesCapTableRow[];
+};
+
+export type CapTableRow = TotalCapTableRow | SafeCapTableRow | SeriesCapTableRow | CommonCapTableRow | OptionsPoolCapTableRow;

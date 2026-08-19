@@ -33,9 +33,11 @@ describe("CLI", () => {
       ],
     }));
     const result = JSON.parse(out);
-    expect(result).toHaveLength(2);
-    expect(result[0].ownershipPct).toBe(0.8);
-    expect(result[1].ownershipPct).toBe(0.2);
+    expect(result.common).toHaveLength(2);
+    expect(result.common[0].ownershipPct).toBe(0.8);
+    expect(result.common[1].ownershipPct).toBe(0.2);
+    expect(result.optionsPool.shares).toBe(0);
+    expect(result.total.ownershipPct).toBe(1);
   });
 
   test("estimated-pre-round — returns common + safes + total", () => {
@@ -49,7 +51,8 @@ describe("CLI", () => {
       ],
     }));
     const result = JSON.parse(out);
-    expect(result.common.length).toBe(2);
+    expect(result.common.length).toBe(1);
+    expect(result.optionsPool.shares).toBe(1_000_000);
     expect(result.safes.length).toBe(1);
     expect(result.total.ownershipPct).toBe(1);
   });
@@ -63,7 +66,7 @@ describe("CLI", () => {
     expect(result.capTable.common.length).toBe(2); // unused options excluded
     expect(result.capTable.safes.length).toBe(1);
     expect(result.capTable.series.length).toBe(1);
-    expect(result.capTable.refreshedOptionsPool).toBeDefined();
+    expect(result.capTable.optionsPool).toBeDefined();
     expect(result.capTable.total.shares).toBe(result.conversion.totalShares);
   });
 
@@ -83,7 +86,7 @@ describe("CLI", () => {
       ],
     }));
     const result = JSON.parse(out);
-    expect(result[0].ownershipPct).toBe(0.75);
+    expect(result.common[0].ownershipPct).toBe(0.75);
   });
 
   test("auto-fills type fields — agents can skip enums", () => {
@@ -142,5 +145,59 @@ describe("CLI", () => {
       seriesInvestments: [2_000_000],
       seriesInvestors: [{ name: "Lead", investment: 3_000_000 }],
     }))).toThrow();
+  });
+
+  test("CLI errors include the stable CalculationError code", () => {
+    try {
+      run("priced-round", JSON.stringify({
+        preMoneyValuation: 0,
+        common: [{ name: "Founder", shares: 1_000_000 }],
+        seriesInvestors: [{ name: "Lead", investment: 1_000_000 }],
+      }));
+      throw new Error("expected the CLI to exit non-zero");
+    } catch (e: any) {
+      expect(String(e.stderr ?? e.message)).toContain("[INVALID_INPUT]");
+    }
+  });
+
+  test("existing aggregates unused option rows into the dedicated pool", () => {
+    const result = JSON.parse(run("existing", JSON.stringify({
+      common: [
+        { name: "Founder", shares: 9_000_000 },
+        { name: "Pool 1", shares: 600_000, commonType: "unusedOptions" },
+        { name: "Pool 2", shares: 400_000, commonType: "unusedOptions" },
+      ],
+    })));
+
+    expect(result.common).toHaveLength(1);
+    expect(result.optionsPool.shares).toBe(1_000_000);
+    expect(result.total.shares).toBe(10_000_000);
+  });
+
+  test("rejects conflicting option-pool representations", () => {
+    expect(() => run("priced-round", JSON.stringify({
+      preMoneyValuation: 10_000_000,
+      common: [
+        { name: "Founder", shares: 9_000_000 },
+        { name: "Pool", shares: 1_000_000, commonType: "unusedOptions" },
+      ],
+      unusedOptions: 500_000,
+      seriesInvestors: [{ name: "Lead", investment: 2_000_000 }],
+    }))).toThrow();
+  });
+
+  test("rejects the legacy SeriesInvestor.round field with a single-event diagnostic", () => {
+    try {
+      run("priced-round", JSON.stringify({
+        preMoneyValuation: 10_000_000,
+        common: [{ name: "Founder", shares: 10_000_000 }],
+        seriesInvestors: [{ name: "Lead", investment: 2_000_000, round: 1 }],
+      }));
+      throw new Error("expected the CLI to exit non-zero");
+    } catch (e: any) {
+      const error = String(e.stderr ?? e.message);
+      expect(error).toContain("[UNSUPPORTED_TERMS]");
+      expect(error).toContain("one financing event");
+    }
   });
 });

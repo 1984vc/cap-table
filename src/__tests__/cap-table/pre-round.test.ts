@@ -63,10 +63,10 @@ const safeFixtureWithPreMoney: SAFENote[] = [
 
 describe("Building an estimated pre-round cap table with common shareholders and SAFEs", () => {
   test("Sanity check our baseline", () => {
-    const {common, safes, total} = buildEstimatedPreRoundCapTable([...commonFixture, ...safeFixture]);
-    expect(common.length).toEqual(4);
+    const {common, safes, optionsPool, total} = buildEstimatedPreRoundCapTable([...commonFixture, ...safeFixture]);
+    expect(common.length).toEqual(3);
     expect(safes.length).toEqual(2);
-    crossCheckCapTableResults([...common, ...safes], total);
+    crossCheckCapTableResults([...common, ...safes, optionsPool], total);
   });
   test("Handle pre-round with MFN", () => {
     const safeFixtureMod: SAFENote[] = [...safeFixture]
@@ -97,10 +97,10 @@ describe("Building an estimated pre-round cap table with common shareholders and
         type: CapTableRowType.Safe,
       },
     )
-    const {common, safes, total} = buildEstimatedPreRoundCapTable([...commonFixture, ...safeFixtureMod]);
-    crossCheckCapTableResults([...common, ...safes], total);
+    const {common, safes, optionsPool, total} = buildEstimatedPreRoundCapTable([...commonFixture, ...safeFixtureMod]);
+    crossCheckCapTableResults([...common, ...safes, optionsPool], total);
 
-    expect(common.length).toEqual(4);
+    expect(common.length).toEqual(3);
 
     // Ensure MFN cap is correct
     expect(safes[2].cap).toEqual(8_000_000);
@@ -108,13 +108,32 @@ describe("Building an estimated pre-round cap table with common shareholders and
   });
 
   test("Handle pre-round with pre-money conversion", () => {
-    const {common, safes, total} = buildEstimatedPreRoundCapTable([...commonFixture, ...safeFixtureWithPreMoney]);
-    crossCheckCapTableResults([...common, ...safes], total);
+    const {common, safes, optionsPool, total} = buildEstimatedPreRoundCapTable([...commonFixture, ...safeFixtureWithPreMoney]);
+    crossCheckCapTableResults([...common, ...safes, optionsPool], total);
 
     // We use a "fake" priced round with no additional options to estimate the pre-money conversion
     // As long as the priced-round is at a valuation higher than the cap, this will be an accurate pre-money value
     expect(safes[2].type === CapTableRowType.Safe && safes[2].ownershipPct?.toFixed(5)).toEqual("0.07727");
 
+  });
+
+  test("Handle pre-round with a standalone fixed-percentage (yc7p) SAFE", () => {
+    const ycSafe: SAFENote = {
+      name: "YC 7%",
+      investment: 125_000,
+      discount: 0,
+      cap: 0,
+      conversionType: "yc7p",
+      type: CapTableRowType.Safe,
+    };
+    const {common, safes, optionsPool, total} = buildEstimatedPreRoundCapTable([
+      { shares: 9_000_000, name: "Founder", type: CapTableRowType.Common, commonType: CommonRowType.Shareholder },
+      ycSafe,
+    ]);
+
+    expect(safes[0].ownershipPct).toBeCloseTo(0.07, 8);
+    expect(safes[0].ownershipError).toBeUndefined();
+    crossCheckCapTableResults([...common, ...safes, optionsPool], total);
   });
 });
 
@@ -123,13 +142,11 @@ const seriesFixture: SeriesInvestor[] = [
     name: "1984",
     investment: 3_000_000,
     type: CapTableRowType.Series,
-    round: 1,
   },
   {
     name: "Venture Fund 2",
     investment: 1_000_000,
     type: CapTableRowType.Series,
-    round: 1,
   },
 ]
 
@@ -143,11 +160,12 @@ describe("Building a priced-round pre-round cap table with common shareholders, 
       seriesFixture[0].investment,
       seriesFixture[1].investment,
     ], DEFAULT_ROUNDING_STRATEGY);
-    const {common, safes, total} = buildPreRoundCapTable(pricedConversion, [...commonFixture, ...safeFixtureWithPreMoney]);
-    expect(common.length).toEqual(4); // We include un-used options for this interim pre-round cap table.
+    const {common, safes, optionsPool, total} = buildPreRoundCapTable(pricedConversion, [...commonFixture, ...safeFixtureWithPreMoney]);
+    expect(common.length).toEqual(3);
+    expect(optionsPool.shares).toEqual(600_000);
     expect(safes.length).toEqual(3);
 
-    crossCheckCapTableResults([...common, ...safes], total);
+    crossCheckCapTableResults([...common, ...safes, optionsPool], total);
 
     // Should match our ownership pct from the estimated round because we didn't add additional options
     expect(safes[2].type === CapTableRowType.Safe && safes[2].ownershipPct?.toFixed(8)).toEqual("0.07727277");
