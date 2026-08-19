@@ -25,6 +25,16 @@ const finite = (value: number, label: string): void => {
   }
 };
 
+const shareRoundingEnabled = (strategy?: RoundingStrategy): boolean =>
+  strategy === undefined || strategy.roundDownShares === true || strategy.roundShares === true;
+
+const validateShares = (value: number, label: string, strategy?: RoundingStrategy): void => {
+  finite(value, label);
+  if (shareRoundingEnabled(strategy) && !Number.isInteger(value)) {
+    throw new CalculationError("INVALID_INPUT", `${label} must be an integer when share rounding is enabled`);
+  }
+};
+
 export const validateRoundingStrategy = (strategy: RoundingStrategy): void => {
   finite(strategy.roundPPSPlaces, "roundPPSPlaces");
   if (!Number.isInteger(strategy.roundPPSPlaces) || strategy.roundPPSPlaces < -1 || strategy.roundPPSPlaces > 15) {
@@ -45,6 +55,9 @@ export const validateSafes = (safes: SAFENote[]): void => {
     finite(safe.discount, `${prefix}.discount`);
     if (safe.investment <= 0) throw new CalculationError("INVALID_INPUT", `${prefix}.investment must be positive`);
     if (safe.cap < 0) throw new CalculationError("INVALID_INPUT", `${prefix}.cap must be nonnegative`);
+    if (safe.cap > 0 && safe.investment >= safe.cap) {
+      throw new CalculationError("INVALID_INPUT", `${prefix}.investment must be less than ${prefix}.cap`);
+    }
     if (safe.discount < 0 || safe.discount >= 1) {
       throw new CalculationError("INVALID_INPUT", `${prefix}.discount must be in [0, 1)`);
     }
@@ -65,14 +78,20 @@ export const validateSafes = (safes: SAFENote[]): void => {
   }
 };
 
-export const validateStakeholders = (stakeholders: StakeHolder[]): void => {
+export const validateStakeholders = (stakeholders: StakeHolder[], strategy?: RoundingStrategy): void => {
   for (const [index, row] of stakeholders.entries()) {
     if (row.type === "common") {
-      finite(row.shares, `stakeholders[${index}].shares`);
+      validateShares(row.shares, `stakeholders[${index}].shares`, strategy);
       if (row.shares <= 0) throw new CalculationError("INVALID_INPUT", `stakeholders[${index}].shares must be positive`);
     } else {
       finite(row.investment, `stakeholders[${index}].investment`);
       if (row.investment <= 0) throw new CalculationError("INVALID_INPUT", `stakeholders[${index}].investment must be positive`);
+      if (row.type === "series" && "round" in row) {
+        throw new CalculationError(
+          "UNSUPPORTED_TERMS",
+          `stakeholders[${index}].round is not supported; the model represents one financing event`,
+        );
+      }
     }
   }
   validateSafes(stakeholders.filter((row): row is SAFENote => row.type === "safe"));
@@ -88,8 +107,8 @@ export const validateConversionInput = (
   roundingStrategy: RoundingStrategy,
 ): void => {
   finite(preMoneyValuation, "preMoneyValuation");
-  finite(commonShares, "commonShares");
-  finite(unusedOptions, "unusedOptions");
+  validateShares(commonShares, "commonShares", roundingStrategy);
+  validateShares(unusedOptions, "unusedOptions", roundingStrategy);
   finite(targetOptionsPct, "targetOptionsPct");
   if (preMoneyValuation <= 0) throw new CalculationError("INVALID_INPUT", "preMoneyValuation must be positive");
   if (commonShares <= 0) throw new CalculationError("INVALID_INPUT", "commonShares must be positive");

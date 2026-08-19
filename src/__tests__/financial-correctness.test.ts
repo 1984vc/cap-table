@@ -30,7 +30,6 @@ const series = (investment = 5_000_000): SeriesInvestor => ({
   name: "Series A",
   investment,
   type: CapTableRowType.Series,
-  round: 1,
 });
 
 const expectClose = (actual: number, expected: number, tolerance = 0.000_01) => {
@@ -38,6 +37,35 @@ const expectClose = (actual: number, expected: number, tolerance = 0.000_01) => 
 };
 
 describe("priced-round financial identities", () => {
+  test("matches the Cap Table 101 seed-round example", () => {
+    const founders = [
+      { ...founder(1_000_000), name: "Founder A" },
+      { ...founder(1_000_000), name: "Founder B" },
+    ];
+    const investor = series(2_000_000);
+    const conversion = fitConversion(8_000_000, 2_000_000, [], 0, 0, [2_000_000]);
+    const capTable = buildPricedRoundCapTable(conversion, [...founders, investor]);
+
+    expect(conversion.pps).toBe(4);
+    expect(capTable.common.map((row) => row.ownershipPct)).toEqual([0.4, 0.4]);
+    expect(capTable.series[0].ownershipPct).toBe(0.2);
+    expect(capTable.optionsPool.ownershipPct).toBe(0);
+  });
+
+  test("matches the Cap Table 101 seed-round example with a 10% reserved pool", () => {
+    const founders = [
+      { ...founder(1_000_000), name: "Founder A" },
+      { ...founder(1_000_000), name: "Founder B" },
+    ];
+    const conversion = fitConversion(8_000_000, 2_000_000, [], 0, 0.1, [2_000_000]);
+    const capTable = buildPricedRoundCapTable(conversion, [...founders, series(2_000_000)]);
+
+    expectClose(capTable.common[0].ownershipPct!, 0.35);
+    expectClose(capTable.common[1].ownershipPct!, 0.35);
+    expectClose(capTable.series[0].ownershipPct, 0.2);
+    expectClose(capTable.optionsPool.ownershipPct!, 0.1);
+  });
+
   test("a priced round without SAFEs or a pool refresh has the exact expected PPS and ownership", () => {
     const conversion = fitConversion(
       20_000_000,
@@ -151,7 +179,7 @@ describe("priced-round financial identities", () => {
     );
     const capTable = buildPricedRoundCapTable(conversion, [founder(), series()]);
 
-    expectClose(capTable.refreshedOptionsPool.ownershipPct, 0.1);
+    expectClose(capTable.optionsPool.ownershipPct!, 0.1);
     expectClose(capTable.series[0].ownershipPct, 0.2);
     expectClose(capTable.common[0].ownershipPct!, 0.7);
   });
@@ -183,7 +211,7 @@ describe("priced-round financial identities", () => {
       ...capTable.common,
       ...capTable.safes,
       ...capTable.series,
-      capTable.refreshedOptionsPool,
+      capTable.optionsPool,
     ];
 
     expect(rows.reduce((sum, row) => sum + (row.shares ?? 0), 0)).toBe(

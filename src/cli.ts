@@ -42,7 +42,6 @@ function normalizeSeries(raw: any[]): SeriesInvestor[] {
   return (raw ?? []).map((r: any) => ({
     ...r,
     type: CapTableRowType.Series,
-    round: r.round ?? 0,
   }));
 }
 
@@ -50,14 +49,14 @@ function normalizeSeries(raw: any[]): SeriesInvestor[] {
 
 function cmdExisting(input: any) {
   const common = normalizeCommonholders(input.commonShareholders ?? input.common ?? []);
-  return buildExistingShareholderCapTable(common);
+  return buildExistingShareholderCapTable(common, input.roundingStrategy ?? DEFAULT_ROUNDING_STRATEGY);
 }
 
 function cmdEstimatedPreRound(input: any) {
   const common = normalizeCommonholders(input.commonShareholders ?? input.common ?? []);
   const safes = normalizeSafes(input.safes ?? []);
   const stakeholders: StakeHolder[] = [...common, ...safes];
-  return buildEstimatedPreRoundCapTable(stakeholders);
+  return buildEstimatedPreRoundCapTable(stakeholders, input.roundingStrategy ?? DEFAULT_ROUNDING_STRATEGY);
 }
 
 function resolveConversionInput(input: any) {
@@ -69,7 +68,7 @@ function resolveConversionInput(input: any) {
     roundingStrategy,
   } = input;
 
-  const common = normalizeCommonholders(input.commonShareholders ?? input.common ?? []);
+  let common = normalizeCommonholders(input.commonShareholders ?? input.common ?? []);
   const safes = normalizeSafes(input.safes ?? []);
   let series = normalizeSeries(input.seriesInvestors ?? []);
 
@@ -77,10 +76,26 @@ function resolveConversionInput(input: any) {
     .filter((c) => c.commonType === CommonRowType.Shareholder)
     .reduce((acc, c) => acc + c.shares, 0);
 
-  const resolvedUnused = unusedOptions ||
-    common
-      .filter((c) => c.commonType === CommonRowType.UnusedOptions)
-      .reduce((acc, c) => acc + c.shares, 0);
+  const commonPoolShares = common
+    .filter((c) => c.commonType === CommonRowType.UnusedOptions)
+    .reduce((acc, c) => acc + c.shares, 0);
+  if (input.unusedOptions !== undefined && commonPoolShares > 0 && unusedOptions !== commonPoolShares) {
+    throw new CalculationError(
+      "CONFLICTING_TRANSACTION_DATA",
+      "unusedOptions must exactly match the unusedOptions rows in common when both are provided",
+    );
+  }
+  const resolvedUnused = input.unusedOptions !== undefined ? unusedOptions : commonPoolShares;
+  if (commonPoolShares === 0 && resolvedUnused > 0) {
+    common = [
+      ...common,
+      ...normalizeCommonholders([{
+        name: "Options Pool",
+        shares: resolvedUnused,
+        commonType: CommonRowType.UnusedOptions,
+      }]),
+    ];
+  }
 
   if (seriesInvestments.length > 0 && series.length > 0) {
     const agrees = seriesInvestments.length === series.length &&
@@ -221,7 +236,8 @@ async function main() {
     const result = commands[command](input);
     console.log(JSON.stringify(result, null, 2));
   } catch (e: any) {
-    console.error(`Error: ${e.message}`);
+    const code = e?.code;
+    console.error(`Error${code ? ` [${code}]` : ""}: ${e?.message ?? e}`);
     process.exit(1);
   }
 }

@@ -1,6 +1,6 @@
-import { SAFENote, CommonStockholder, CommonCapTableRow, SafeCapTableRow, TotalCapTableRow, CapTableOwnershipError, CapTableRowType } from "./types";
+import { SAFENote, CommonStockholder, CommonCapTableRow, SafeCapTableRow, CapTableOwnershipError, CapTableRowType, CommonRowType, PreRoundCapTable } from "./types";
 
-export const buildTBDPreRoundCapTable = (safeNotes: SAFENote[], common: CommonStockholder[]): {common: CommonCapTableRow[], safes: SafeCapTableRow[], total: TotalCapTableRow} => {
+export const buildTBDPreRoundCapTable = (safeNotes: SAFENote[], common: CommonStockholder[]): PreRoundCapTable => {
   const totalInvestment = safeNotes.reduce((acc, investor) => acc + investor.investment, 0);
   const totalShares = common.reduce((acc, common) => acc + common.shares, 0)
   const ownershipError: CapTableOwnershipError = {
@@ -22,7 +22,12 @@ export const buildTBDPreRoundCapTable = (safeNotes: SAFENote[], common: CommonSt
     }
   })
 
-  const commonCapTable: CommonCapTableRow[] = common.map((stockholder) => {
+  const poolShares = common
+    .filter((stockholder) => stockholder.commonType === CommonRowType.UnusedOptions)
+    .reduce((total, stockholder) => total + stockholder.shares, 0);
+  const commonCapTable: CommonCapTableRow[] = common
+    .filter((stockholder) => stockholder.commonType === CommonRowType.Shareholder)
+    .map((stockholder) => {
     return {
       name: stockholder.name,
       shares: stockholder.shares,
@@ -36,55 +41,12 @@ export const buildTBDPreRoundCapTable = (safeNotes: SAFENote[], common: CommonSt
   return {
     common: commonCapTable,
     safes: safeCapTable,
-    total: {
-      name: "Total",
-      // In a pre-round cap table, the total shares are just the common shares since we can't know the PPS yet
-      shares: totalShares,
-      investment: totalInvestment,
-      ownershipPct: 1,
-      type: CapTableRowType.Total,
+    optionsPool: {
+      name: "Options Pool",
+      shares: poolShares,
+      ownershipError,
+      type: CapTableRowType.OptionsPool,
     },
-  }
-}
-
-
-// Builds a cap table with all the ownership marked as an Error
-export const buildErrorPreRoundCapTable = (safeNotes: SAFENote[], common: CommonStockholder[]): {common: CommonCapTableRow[], safes: SafeCapTableRow[], total: TotalCapTableRow} => {
-  const totalInvestment = safeNotes.reduce((acc, investor) => acc + investor.investment, 0);
-  const totalShares = common.reduce((acc, common) => acc + common.shares, 0)
-  const ownershipError: CapTableOwnershipError = {
-    type: "error",
-  }
-
-  const safeCapTable: SafeCapTableRow[] = safeNotes.map((safe) => {
-    const safeOwnershipError = {...ownershipError}
-    if (safe.investment >= safe.cap && safe.cap !== 0) {
-      safeOwnershipError.reason = "SAFE's investment cannot equal or exceed the Cap"
-    }
-    return {
-      name: safe.name,
-      cap: safe.cap,
-      discount: safe.discount,
-      ownershipError: safeOwnershipError,
-      investment: safe.investment,
-      type: CapTableRowType.Safe,
-    }
-  })
-
-  const commonCapTable: CommonCapTableRow[] = common.map((stockholder) => {
-    return {
-      name: stockholder.name,
-      shares: stockholder.shares,
-      ownershipError,
-      type: CapTableRowType.Common,
-      commonType: stockholder.commonType,
-    }
-  })
-
-
-  return {
-    common: commonCapTable,
-    safes: safeCapTable,
     total: {
       name: "Total",
       // In a pre-round cap table, the total shares are just the common shares since we can't know the PPS yet

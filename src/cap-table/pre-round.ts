@@ -1,35 +1,35 @@
 import { BestFit, DEFAULT_ROUNDING_STRATEGY } from "../conversion-solver";
-import { checkSafeNotesForErrors, populateSafeCaps } from "../safe-calcs";
+import { isMFN, populateSafeCaps } from "../safe-calcs";
 import { RoundingStrategy, roundShares } from "../utils/rounding";
-import { SAFENote, CommonStockholder, CommonCapTableRow, SafeCapTableRow, TotalCapTableRow, StakeHolder, CapTableRowType } from "./types";
-import { buildErrorPreRoundCapTable, buildTBDPreRoundCapTable } from "./error";
+import { SAFENote, CommonStockholder, CommonCapTableRow, SafeCapTableRow, StakeHolder, CapTableRowType, CommonRowType, PreRoundCapTable } from "./types";
+import { buildTBDPreRoundCapTable } from "./error";
 import { formatUSDWithCommas } from "../utils/numberFormatting";
 import { validateStakeholders } from "../validation";
 
 // Builds a preRound cap table assuming there are no refreshed options
-// Needs to handle 3 possible states:
+// Needs to handle 2 possible output states; invalid input throws:
 // 1. Round modelled with max Cap
 // 2. Round entirely TBD because no max cap
-// 3. Error due to some non-sensical input (investment exceeds cap)
-export const buildEstimatedPreRoundCapTable = (stakeHolders: StakeHolder[], roundingStrategy: RoundingStrategy = DEFAULT_ROUNDING_STRATEGY): {common: CommonCapTableRow[], safes: SafeCapTableRow[], total: TotalCapTableRow} => {
-  validateStakeholders(stakeHolders);
+export const buildEstimatedPreRoundCapTable = (stakeHolders: StakeHolder[], roundingStrategy: RoundingStrategy = DEFAULT_ROUNDING_STRATEGY): PreRoundCapTable => {
+  validateStakeholders(stakeHolders, roundingStrategy);
   const commonShareholders = stakeHolders.filter((stakeHolder) => stakeHolder.type === CapTableRowType.Common) as CommonStockholder[];
+  const issuedShareholders = commonShareholders.filter((stockholder) => stockholder.commonType === CommonRowType.Shareholder);
+  const unusedOptions = commonShareholders
+    .filter((stockholder) => stockholder.commonType === CommonRowType.UnusedOptions)
+    .reduce((total, stockholder) => total + stockholder.shares, 0);
 
   // The premoney shares are used to determine the pre-money safe conversions (SAFE cap / PreMoneyShares)
   const preMoneyShares = commonShareholders.reduce((acc, stockholder) => acc + stockholder.shares, 0);
 
   // Handle any MFN side-letters and find the following best cap
-  const safeNotes = populateSafeCaps(stakeHolders.filter((stakeHolder) => stakeHolder.type === CapTableRowType.Safe) as SAFENote[])
-
-  // Handle Error, just stop here and generate an error cap table
-  if (safeNotes.some((safeNote) => safeNote.cap !== 0 && safeNote.cap <= safeNote.investment)) {
-    return buildErrorPreRoundCapTable(safeNotes, [...commonShareholders])
-  }
+  const inputSafeNotes = stakeHolders.filter((stakeHolder) => stakeHolder.type === CapTableRowType.Safe) as SAFENote[];
+  const safeNotes = populateSafeCaps(inputSafeNotes)
 
   const maxCap = safeNotes.reduce((max, stakeholder) => Math.max(max, stakeholder.cap), 0)
 
-  // Handle cases where we simply can't build an estimated cap table until a priced round
-  if (maxCap === 0) {
+  // Handle cases where we simply can't build an estimated cap table until a priced round.
+  // A fixed-percentage (yc7p) SAFE is contractually set at 7% and can still be modelled.
+  if (maxCap === 0 && safeNotes.some((safe) => safe.conversionType !== "yc7p")) {
     return buildTBDPreRoundCapTable(safeNotes, [...commonShareholders])
   }
 
@@ -109,7 +109,24 @@ export const buildEstimatedPreRoundCapTable = (stakeHolders: StakeHolder[], roun
     }
   })
 
-  safeCapTable = safeCapTable.map((safe) => {
+  safeCapTable = safeCapTable.map((safe, idx) => {
+    const effectiveSafe = safeNotes[idx];
+    const inputSafe = inputSafeNotes[idx];
+    if (safeNotes[idx]?.conversionType === "yc7p") {
+      return safe
+    }
+    if (inputSafe && isMFN(inputSafe)) {
+      const election = effectiveSafe.electionSourceName
+        ? ` The provisional estimate elects ${effectiveSafe.electionSourceName}.`
+        : " No eligible later SAFE package is currently available.";
+      return {
+        ...safe,
+        ownershipError: {
+          type: "caveat" as const,
+          reason: `MFN ownership is provisional because the future priced-round PPS can change which cap or discount package is most favorable.${election}`,
+        },
+      };
+    }
     if (safe.cap === 0) {
       let reason = `No cap set for this SAFE, ownership based on max cap of all other SAFE's. Currently set to ${formatUSDWithCommas(maxCap)}.`
       if (safe.discount > 0) {
@@ -132,19 +149,11 @@ export const buildEstimatedPreRoundCapTable = (stakeHolders: StakeHolder[], roun
           reason: "It is not possible to calculate ownership with a discount until a priced round is entered",
         },
       }
-    } else if (safe.sideLetters && safe.sideLetters.includes("mfn")) {
-      return {
-        ...safe,
-        ownershipError: {
-          type: "caveat" as const,
-          reason: "For an Uncapped MFN the cap is set to the lowest cap in subsequent SAFE's. You can re-order the SAFEs using the reorder button on the left.",
-        },
-      }
     }
     return safe
   })
 
-  const commonCapTable: CommonCapTableRow[] = commonShareholders.map((stockholder) => {
+  const commonCapTable: CommonCapTableRow[] = issuedShareholders.map((stockholder) => {
     return {
       name: stockholder.name,
       shares: stockholder.shares,
@@ -160,6 +169,12 @@ export const buildEstimatedPreRoundCapTable = (stakeHolders: StakeHolder[], roun
   return {
     common: commonCapTable,
     safes: safeCapTable,
+    optionsPool: {
+      name: "Options Pool",
+      shares: unusedOptions,
+      ownershipPct: unusedOptions / postShareCapitilization,
+      type: CapTableRowType.OptionsPool,
+    },
     total: {
       name: "Total",
       // In a pre-round cap table, the total shares are just the common shares since we can't know the PPS yet
@@ -172,19 +187,19 @@ export const buildEstimatedPreRoundCapTable = (stakeHolders: StakeHolder[], roun
 }
 
 // Build a pre-round cap table once we have a pricedRound to convert at
-export const buildPreRoundCapTable = (pricedConversion: BestFit, stakeHolders: StakeHolder[]): {common: CommonCapTableRow[], safes: SafeCapTableRow[], total: TotalCapTableRow} => {
-  validateStakeholders(stakeHolders);
+export const buildPreRoundCapTable = (pricedConversion: BestFit, stakeHolders: StakeHolder[]): PreRoundCapTable => {
+  validateStakeholders(stakeHolders, pricedConversion.roundingStrategy);
   const commonShareholders = stakeHolders.filter((stakeHolder) => stakeHolder.type === CapTableRowType.Common) as CommonStockholder[];
-  const safeNotes = populateSafeCaps(stakeHolders.filter((stakeHolder) => stakeHolder.type === CapTableRowType.Safe) as SAFENote[])
+  const issuedShareholders = commonShareholders.filter((stockholder) => stockholder.commonType === CommonRowType.Shareholder);
+  const unusedOptions = commonShareholders
+    .filter((stockholder) => stockholder.commonType === CommonRowType.UnusedOptions)
+    .reduce((total, stockholder) => total + stockholder.shares, 0);
+  const safeNotes = stakeHolders.filter((stakeHolder) => stakeHolder.type === CapTableRowType.Safe) as SAFENote[];
   const totalShares = pricedConversion.totalShares - pricedConversion.seriesShares - pricedConversion.additionalOptions;
 
   const totalInvestment = [...safeNotes].reduce((acc, investor) => acc + investor.investment, 0);
 
-  if (checkSafeNotesForErrors(safeNotes)) {
-    return buildErrorPreRoundCapTable(safeNotes, commonShareholders)
-  }
-
-  const commonCapTable: CommonCapTableRow[] = commonShareholders.map((stockholder) => {
+  const commonCapTable: CommonCapTableRow[] = issuedShareholders.map((stockholder) => {
     return {
       name: stockholder.name,
       shares: stockholder.shares,
@@ -216,6 +231,12 @@ export const buildPreRoundCapTable = (pricedConversion: BestFit, stakeHolders: S
   return {
     common: commonCapTable,
     safes: safeCapTable,
+    optionsPool: {
+      name: "Options Pool",
+      shares: unusedOptions,
+      ownershipPct: unusedOptions / totalShares,
+      type: CapTableRowType.OptionsPool,
+    },
     total: {
       name: "Total",
       // In a pre-round cap table, the total shares are just the common shares since we can't know the PPS yet

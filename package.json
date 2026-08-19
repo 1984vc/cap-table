@@ -7,7 +7,7 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "cap-table": "./dist/cli.js"
+    "cap-table": "dist/cli.js"
   },
   "exports": {
     ".": {
