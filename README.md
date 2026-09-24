@@ -81,19 +81,11 @@ Then ask:
 ```text
 Help me model our next financing with @1984vc/cap-table. The two founders
 split their founder shares 45/55. We reserved 10% for employee options;
-one early employee has been granted 2%, leaving 8% unissued. We have some
-standard YC SAFEs, plus $3M in other SAFEs at a $20M cap. We're considering
-raising $6M at a $40M pre-money valuation in our first priced round, and
-the investor wants the unissued option pool refreshed to 10% afterward.
+one early employee has been granted 2%. We have the standard 
+YC SAFEs, plus $3M in other SAFEs at a $20M cap. We're considering
+raising $6M at a $40M post, with an options refresh to 10%.
 
-Ask me for the current share counts and the missing details of each SAFE:
-investment amount, cap or discount, exact YC form, and signing order.
-Don't guess those terms. Then show today's ownership, ownership after SAFE
-conversion, and ownership after the round. Compare the 10% pool refresh
-with a scenario that keeps the existing pool unchanged. How many new
-option shares does the refresh take, and how does each scenario affect the
-founders, the employee, and the SAFE holders? Include the round price per
-share and explain where the dilution comes from.
+Help me understand how this affecty my ownership percentage.
 ```
 
 The skill uses the hosted
