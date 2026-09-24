@@ -2,6 +2,13 @@
   "name": "@1984vc/cap-table",
   "version": "0.5.0",
   "description": "Cap table calculations for startup equity modeling",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/1984vc/cap-table"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
