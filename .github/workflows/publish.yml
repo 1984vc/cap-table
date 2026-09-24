@@ -1,4 +1,4 @@
-name: Publish to npm
+name: Stage on npm
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   id-token: write
 
 jobs:
-  publish:
+  stage:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -28,7 +28,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
-      - name: Publish with npm trusted publishing
+      - name: Stage with npm trusted publishing
         run: |
-          npm install --global npm@^11
-          npm publish --access public
+          npm install --global npm@^11.15.0
+          npm stage publish

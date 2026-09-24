@@ -4,7 +4,7 @@
   "description": "Cap table calculations for startup equity modeling",
   "repository": {
     "type": "git",
-    "url": "https://github.com/1984vc/cap-table"
+    "url": "git+https://github.com/1984vc/cap-table.git"
   },
   "publishConfig": {
     "access": "public"
