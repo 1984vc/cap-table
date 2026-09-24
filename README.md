@@ -30,6 +30,7 @@ It powers the free
 - [Use the library directly](#use-the-library-directly)
 - [Model boundaries](#model-boundaries)
 - [Development](#development)
+- [Publishing](#publishing)
 
 </details>
 
@@ -336,6 +337,27 @@ pnpm install
 pnpm typecheck
 pnpm test
 ```
+
+## Publishing
+
+Releases use [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/).
+In the settings for [`@1984vc/cap-table`](https://www.npmjs.com/package/@1984vc/cap-table),
+add a GitHub Actions trusted publisher with:
+
+| npm setting | Value |
+|---|---|
+| Organization or user | `1984vc` |
+| Repository | `cap-table` |
+| Workflow filename | `publish.yml` |
+| Environment name | Leave blank |
+| Allowed actions | Allow `npm publish` |
+
+Once the workflow is on `main`, tag the release commit as `v0.5.0` (or the
+`v`-prefixed version in `package.json`) and push the tag. The workflow checks
+that the tag and package version agree, runs the tests, builds `dist`, and
+publishes to npm using GitHub's OIDC identity. No npm token is needed in GitHub
+secrets. npm automatically attaches provenance for public packages published
+this way.
 
 ## Disclaimer
 
