@@ -1,3 +1,6 @@
+<img width="50%" height="50%" alt="image" src="https://github.com/user-attachments/assets/3638b04d-26ee-4bfa-a848-3b86302e6060" />
+
+
 # @1984vc/cap-table
 
 [![npm version](https://img.shields.io/npm/v/%401984vc%2Fcap-table?style=flat-square)](https://www.npmjs.com/package/@1984vc/cap-table)
