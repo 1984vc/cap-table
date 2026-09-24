@@ -54,7 +54,16 @@ echo '{...}' | npx @1984vc/cap-table priced-round
 
 # From file
 npx @1984vc/cap-table priced-round ./input.json
+
+# Founder-facing Markdown report
+npx @1984vc/cap-table priced-round ./input.json --format markdown
 ```
+
+Use the default JSON to inspect exact values, SAFE conversion outcomes, and
+`ownershipError` caveats when reasoning about a result. Present the answer to
+the founder in Markdown; `--format markdown` produces a ready-to-share table
+with estimate notes and links to 1984's founder guides. Never treat a `tbd`
+estimate as final ownership.
 
 ### Input Schema
 
@@ -114,13 +123,17 @@ npx @1984vc/cap-table priced-round ./input.json
 
 ## Output
 
-### `existing` → Array of rows
+### `existing` → Object with common rows, optionsPool, and total
 
 ```json
-[
-  { "name": "Founder 1", "shares": 8000000, "ownershipPct": 0.8, "type": "common" },
-  { "name": "Founder 2", "shares": 2000000, "ownershipPct": 0.2, "type": "common" }
-]
+{
+  "common": [
+    { "name": "Founder 1", "shares": 8000000, "ownershipPct": 0.8, "type": "common", "commonType": "shareholder" },
+    { "name": "Founder 2", "shares": 2000000, "ownershipPct": 0.2, "type": "common", "commonType": "shareholder" }
+  ],
+  "optionsPool": { "name": "Options Pool", "shares": 0, "ownershipPct": 0, "type": "optionsPool" },
+  "total": { "name": "Total", "shares": 10000000, "investment": 0, "ownershipPct": 1, "type": "total" }
+}
 ```
 
 ### `estimated-pre-round` → Object
@@ -158,7 +171,7 @@ npx @1984vc/cap-table priced-round ./input.json
     "series": [
       { "name": "Lead", "investment": 2000000, "ownershipPct": 0.143, "shares": 1907741, "pps": 1.04836 }
     ],
-    "refreshedOptionsPool": { "shares": 1335426, "ownershipPct": 0.1 },
+    "optionsPool": { "shares": 1335426, "ownershipPct": 0.1 },
     "total": { "shares": 13354265, "investment": 3000000, "ownershipPct": 1 }
   }
 }
