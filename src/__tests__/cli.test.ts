@@ -7,6 +7,8 @@ const run = (cmd: string, json: string) =>
   execFileSync("node", [cli, cmd, json], { encoding: "utf-8" });
 const runStdin = (cmd: string, json: string) =>
   execFileSync("node", [cli, cmd], { input: json, encoding: "utf-8" });
+const runMarkdown = (cmd: string, json: string) =>
+  execFileSync("node", [cli, cmd, json, "--format", "markdown"], { encoding: "utf-8" });
 
 const sampleInput = JSON.stringify({
   preMoneyValuation: 12_000_000,
@@ -25,6 +27,65 @@ const sampleInput = JSON.stringify({
 });
 
 describe("CLI", () => {
+  test("help points agents to the skill, guides, and Markdown output", () => {
+    const out = execFileSync("node", [cli, "--help"], { encoding: "utf-8" });
+    expect(out).toContain("--format markdown");
+    expect(out).toContain("npx skills add 1984vc/cap-table");
+    expect(out).toContain("cap-table-101.md");
+    expect(out).toContain("safe-side-letters.md");
+  });
+
+  test("Markdown formats existing ownership and escapes holder names", () => {
+    const out = runMarkdown("existing", JSON.stringify({
+      common: [{ name: "A | [Founder]", shares: 800_000 }, { name: "B", shares: 200_000 }],
+    }));
+    expect(out).toContain("| A \\| \\[Founder\\] | 800,000 | 80.00% |");
+    expect(out).toContain("| Options Pool | 0 | 0.00% |");
+    expect(out).toContain("| Total | 1,000,000 | 100.00% |");
+    expect(out).toContain("https://github.com/1984vc/cap-table");
+    expect(out).toContain("safe-side-letters.md");
+  });
+
+  test("Markdown preserves TBD and provisional estimate warnings", () => {
+    const tbd = runMarkdown("estimated-pre-round", JSON.stringify({
+      common: [{ name: "Founder", shares: 10_000_000 }],
+      safes: [{ name: "Uncapped", investment: 500_000 }],
+    }));
+    expect(tbd).toContain("| Uncapped | — | TBD |");
+    expect(tbd).toContain("| Total | 10,000,000 | TBD |");
+    expect(tbd).toContain("final fully diluted ownership cannot yet be calculated");
+
+    const provisional = runMarkdown("estimated-pre-round", JSON.stringify({
+      common: [{ name: "Founder", shares: 10_000_000 }],
+      safes: [
+        { name: "MFN", investment: 100_000, sideLetters: ["mfn"] },
+        { name: "Later", investment: 200_000, cap: 5_000_000 },
+      ],
+    }));
+    expect(provisional).toMatch(/\| MFN \| [\d,]+ \| [\d.]+% \(estimate\) \|/);
+    expect(provisional).toContain("MFN ownership is provisional");
+  });
+
+  test("Markdown distinguishes pre-round from priced-round figures", () => {
+    const priced = runMarkdown("priced-round", sampleInput);
+    expect(priced).toContain("## Round figures");
+    expect(priced).toContain("New Series shares:");
+    expect(priced).toContain("Option-pool increase:");
+    expect(priced).toContain("| Lead |");
+    const pre = runMarkdown("pre-round", sampleInput);
+    expect(pre).not.toContain("| Lead |");
+    expect(pre).toContain("excludes new Series shares and the option-pool increase");
+  });
+
+  test("JSON remains the default and explicitly selectable", () => {
+    const json = JSON.stringify({ common: [{ name: "Founder", shares: 1_000_000 }] });
+    const defaultResult = JSON.parse(run("existing", json));
+    const explicit = execFileSync("node", [cli, "--format=json", "existing", json], { encoding: "utf-8" });
+    expect(JSON.parse(explicit)).toEqual(defaultResult);
+    expect(() => execFileSync("node", [cli, "existing", json, "--format", "csv"], { stdio: "pipe" }))
+      .toThrow();
+  });
+
   test("existing — returns ownership percentages", () => {
     const out = run("existing", JSON.stringify({
       common: [

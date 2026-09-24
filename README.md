@@ -1,6 +1,11 @@
 # @1984vc/cap-table
 
-Model your cap table when the math stops being obvious.
+[![npm version](https://img.shields.io/npm/v/%401984vc%2Fcap-table?style=flat-square)](https://www.npmjs.com/package/@1984vc/cap-table)
+[![Node.js 18+](https://img.shields.io/badge/node-%3E%3D18-blue?style=flat-square)](https://nodejs.org/)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+
+Model your cap table when the math stops being obvious. Run it from an AI agent,
+the command line, or a TypeScript application.
 
 A 50/50 founder split is easy. The hard part starts when you add issued
 options, an unused pool, several SAFEs with different caps, YC terms, an MFN
@@ -8,9 +13,53 @@ side letter, a priced round, and an investor-requested option-pool refresh.
 Those terms interact recursively, and small PPS or share-rounding differences
 can change the final ownership.
 
-`@1984vc/cap-table` gives an AI agent or application a deterministic,
-well-tested calculation engine for that work. It powers the free
+`@1984vc/cap-table` calculates the share counts and ownership. Its CLI prints
+JSON for agents and scripts, or a Markdown table you can share with a founder.
+It powers the free
 [1984 Ventures Cap Table Worksheet](https://startup-finance.1984.vc/).
+
+<details>
+<summary>Contents</summary>
+
+- [Quick start](#quick-start)
+- [Use it with an AI coding agent](#use-it-with-an-ai-coding-agent)
+- [A round with SAFEs and an option pool](#a-round-with-safes-and-an-option-pool)
+- [What the agent will need from you](#what-the-agent-will-need-from-you)
+- [Choose the right command](#choose-the-right-command)
+- [Understand the output](#understand-the-output)
+- [Use the library directly](#use-the-library-directly)
+- [Model boundaries](#model-boundaries)
+- [Development](#development)
+
+</details>
+
+## Quick start
+
+No clone or local install is needed to try the CLI. This example prints a
+Markdown report for two founders:
+
+```bash
+npx @1984vc/cap-table existing '{"common":[{"name":"Founder A","shares":8000000},{"name":"Founder B","shares":2000000}]}' --format markdown
+```
+
+```md
+# Existing cap table
+
+| Holder | Shares | Ownership |
+| --- | ---: | ---: |
+| Founder A | 8,000,000 | 80.00% |
+| Founder B | 2,000,000 | 20.00% |
+| Options Pool | 0 | 0.00% |
+| Total | 10,000,000 | 100.00% |
+
+Generated with [@1984vc/cap-table](https://github.com/1984vc/cap-table).
+
+Learn more: [Cap Table 101](https://1984.vc/docs/founders-handbook/cap-table-101.md) · [SAFE Side Letters](https://1984.vc/docs/founders-handbook/safe-side-letters.md).
+```
+
+Leave off `--format markdown` to get JSON with exact values for an agent or
+application. [Cap Table 101](https://1984.vc/docs/founders-handbook/cap-table-101.md)
+explains the ownership concepts behind the numbers.
 
 ## Use it with an AI coding agent
 
@@ -53,7 +102,7 @@ The agent can run the calculator without cloning or installing the library:
 npx @1984vc/cap-table priced-round ./scenario.json
 ```
 
-## The kind of scenario this tool is for
+## A round with SAFEs and an option pool
 
 Consider a company with:
 
@@ -74,7 +123,12 @@ diluted opening cap table. What they own afterward is not a one-line dilution
 calculation: the SAFE shares, round PPS, Series shares, and pool refresh all
 depend on one another.
 
-Run the complete scenario:
+Run the complete scenario (add `--format markdown` after the JSON to print a
+shareable report):
+
+<details>
+<summary>Show the full priced-round command</summary>
+
 
 ```bash
 npx @1984vc/cap-table priced-round '{
@@ -127,6 +181,8 @@ npx @1984vc/cap-table priced-round '{
 }'
 ```
 
+</details>
+
 The reconciled result is:
 
 | Holder | Final shares | Final ownership |
@@ -140,7 +196,7 @@ The reconciled result is:
 | Benchmark | 649,306 | 3.83% |
 | Follow-on SAFE | 525,756 | 3.10% |
 | Series A Lead | 2,338,415 | 13.79% |
-| Available Option Pool | 1,695,354 | 10.00% |
+| Options Pool | 1,695,354 | 10.00% |
 | **Total** | **16,953,545** | **100.00%** |
 
 The useful answers are not just the final percentages:
@@ -190,28 +246,21 @@ cat scenario.json | npx @1984vc/cap-table priced-round
 npx @1984vc/cap-table --help
 ```
 
+For `pre-round` and `priced-round`, the default `targetOptionsPct` is 0.10.
+Set it explicitly if your round has a different pool target, including `0`.
+
+The CLI returns JSON by default so agents can inspect exact values and
+calculation caveats. For a founder-facing table with estimate notes and links
+to 1984's guides, request a Markdown report:
+
+```bash
+npx @1984vc/cap-table priced-round ./scenario.json --format markdown
+```
+
 ## Understand the output
 
-A priced-round calculation returns:
-
-```json
-{
-  "conversion": {
-    "pps": 1.71056,
-    "safeConversions": [],
-    "seriesInvestorShares": [],
-    "additionalOptions": 945354,
-    "totalShares": 16953545
-  },
-  "capTable": {
-    "common": [],
-    "safes": [],
-    "series": [],
-    "optionsPool": {},
-    "total": {}
-  }
-}
-```
+A priced-round JSON result has two top-level fields, `conversion` and
+`capTable`:
 
 - `conversion` records the PPS, controlling SAFE terms, investor allocations,
   pool increase, and exact reconciled share totals.
@@ -221,6 +270,12 @@ A priced-round calculation returns:
 - `optionsPool` is the unissued pool reserved for future grants.
 - `total` reconciles all rows to 100%.
 
+`existing` returns a cap table directly. `estimated-pre-round` can mark
+ownership with an `ownershipError` of `caveat` or `tbd` when terms are not yet
+known; the Markdown report shows those warnings rather than treating an
+estimate as final ownership. `pre-round` returns `conversion` and `capTable`
+but does not include the new Series shares or refreshed pool in its table.
+
 Share counts are floored and PPS is rounded up to five decimal places by
 default, matching common legal spreadsheet conventions. Invalid or unsupported
 transactions fail with a stable error code instead of returning a plausible but
@@ -228,7 +283,8 @@ incorrect cap table.
 
 ## Use the library directly
 
-Applications can call the same engine from TypeScript:
+Applications can call the same engine from TypeScript. The library API requires
+explicit row types; the CLI fills them in for JSON input.
 
 ```bash
 npm install @1984vc/cap-table
@@ -236,20 +292,17 @@ npm install @1984vc/cap-table
 
 ```typescript
 import {
-  buildPricedRoundCapTable,
-  fitConversion,
+  buildExistingShareholderCapTable,
+  CapTableRowType,
+  CommonRowType,
 } from "@1984vc/cap-table";
 
-const conversion = fitConversion(
-  preMoneyValuation,
-  issuedShares,
-  safes,
-  unusedOptions,
-  targetOptionsPct,
-  seriesInvestments,
-);
+const capTable = buildExistingShareholderCapTable([
+  { name: "Founder A", shares: 8_000_000, type: CapTableRowType.Common, commonType: CommonRowType.Shareholder },
+  { name: "Founder B", shares: 2_000_000, type: CapTableRowType.Common, commonType: CommonRowType.Shareholder },
+]);
 
-const capTable = buildPricedRoundCapTable(conversion, stakeholders);
+console.log(capTable.common[0].ownershipPct); // 0.8
 ```
 
 | Function | Purpose |
@@ -259,6 +312,9 @@ const capTable = buildPricedRoundCapTable(conversion, stakeholders);
 | `fitConversion` | Solve SAFE conversions, PPS, investor shares, and the pool refresh |
 | `buildPreRoundCapTable` | Build exact ownership immediately before new money |
 | `buildPricedRoundCapTable` | Build the fully diluted post-financing cap table |
+
+See the skill's [library API reference](skills/cap-table/references/library-api.md)
+for the solver arguments and types used in priced-round calculations.
 
 All public inputs are validated. Failures throw `CalculationError` with
 `INVALID_INPUT`, `UNSUPPORTED_TERMS`, `CONFLICTING_TRANSACTION_DATA`, or

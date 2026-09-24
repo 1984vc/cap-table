@@ -13,6 +13,7 @@ import {
 } from "./index.js";
 import type { CommonStockholder, SAFENote, SeriesInvestor, StakeHolder } from "./index.js";
 import { readFileSync } from "node:fs";
+import { formatMarkdownReport } from "./markdown-report.js";
 
 // ─── Input normalisation ────────────────────────────────────────────────────
 // Agents shouldn't need to pass TypeScript enums.  We auto-fill `type` and
@@ -144,7 +145,7 @@ function cmdPricedRound(input: any) {
 
 // ─── CLI entry ──────────────────────────────────────────────────────────────
 
-const USAGE = `Usage: cap-table <command> [json-input]
+const USAGE = `Usage: cap-table <command> [json-input] [--format json|markdown]
 
 Commands:
   existing               Existing shareholders only (no SAFEs, no rounds)
@@ -158,10 +159,20 @@ Input:
   npx @1984vc/cap-table priced-round '{"preMoneyValuation":12000000,...}'
   echo '...' | npx @1984vc/cap-table priced-round
   npx @1984vc/cap-table priced-round ./input.json
+  npx @1984vc/cap-table priced-round ./input.json --format markdown
 
 Options:
+  --format         Output format: json (default) or markdown
   -h, --help       Show this help
-  -v, --version    Show version`;
+  -v, --version    Show version
+
+For agent-guided modeling, install the cap-table skill:
+  npx skills add 1984vc/cap-table
+
+Founder guides:
+  Cap Table 101: https://1984.vc/docs/founders-handbook/cap-table-101.md
+  SAFE Side Letters: https://1984.vc/docs/founders-handbook/safe-side-letters.md
+  Source: https://github.com/1984vc/cap-table`;
 
 function getVersion(): string {
   try {
@@ -193,7 +204,23 @@ async function main() {
     process.exit(0);
   }
 
-  const command = args[0];
+  let format: "json" | "markdown" = "json";
+  const positional: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "--format" || arg.startsWith("--format=")) {
+      const value = arg === "--format" ? args[++i] : arg.slice("--format=".length);
+      if (value !== "json" && value !== "markdown") {
+        console.error("Error: --format must be json or markdown.");
+        process.exit(1);
+      }
+      format = value;
+    } else {
+      positional.push(arg);
+    }
+  }
+
+  const command = positional[0];
   const commands: Record<string, (input: any) => any> = {
     existing: cmdExisting,
     "estimated-pre-round": cmdEstimatedPreRound,
@@ -205,10 +232,14 @@ async function main() {
     console.error(`Unknown command: ${command}\nValid: ${Object.keys(commands).join(", ")}`);
     process.exit(1);
   }
+  if (positional.length > 2) {
+    console.error("Error: Expected at most one JSON input argument.");
+    process.exit(1);
+  }
 
   // Resolve JSON input: arg > file > stdin
   let rawInput: string;
-  const secondArg = args[1];
+  const secondArg = positional[1];
   if (secondArg) {
     if (secondArg.endsWith(".json") || secondArg.startsWith("./") || secondArg.startsWith("/")) {
       try { rawInput = readFileSync(secondArg, "utf-8"); }
@@ -234,7 +265,7 @@ async function main() {
 
   try {
     const result = commands[command](input);
-    console.log(JSON.stringify(result, null, 2));
+    console.log(format === "markdown" ? formatMarkdownReport(command, result) : JSON.stringify(result, null, 2));
   } catch (e: any) {
     const code = e?.code;
     console.error(`Error${code ? ` [${code}]` : ""}: ${e?.message ?? e}`);
