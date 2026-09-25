@@ -346,7 +346,7 @@ pnpm typecheck
 pnpm test
 ```
 
-## Staged releases
+## Staged NPM releases
 
 Releases use [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/)
 and [staged publishing](https://docs.npmjs.com/staged-publishing/).
@@ -360,15 +360,6 @@ add a GitHub Actions trusted publisher with:
 | Workflow filename | `publish.yml` |
 | Environment name | Leave blank |
 | Allowed actions | `npm stage publish` only; do not allow `npm publish` |
-
-Once the workflow is on `main`, tag the release commit as `v0.5.0` (or the
-`v`-prefixed version in `package.json`) and push the tag. The workflow checks
-that the tag and package version agree, runs the tests, builds `dist`, and
-stages the package on npm using GitHub's OIDC identity. **The tag does not make
-the version available for installation.** Review it in npm's **Staged Packages**
-tab or with `npm stage list @1984vc/cap-table`, then approve it on npm with 2FA
-when ready. No npm token is needed in GitHub secrets; the staged release stays
-pending until a maintainer approves it.
 
 ## Disclaimer
 
