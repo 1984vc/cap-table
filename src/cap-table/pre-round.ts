@@ -4,7 +4,7 @@ import { RoundingStrategy, roundShares } from "../utils/rounding";
 import { SAFENote, CommonStockholder, CommonCapTableRow, SafeCapTableRow, StakeHolder, CapTableRowType, CommonRowType, PreRoundCapTable } from "./types";
 import { buildTBDPreRoundCapTable } from "./error";
 import { formatUSDWithCommas } from "../utils/numberFormatting";
-import { validateStakeholders } from "../validation";
+import { CalculationError, validateStakeholders } from "../validation";
 
 // Builds a preRound cap table assuming there are no refreshed options
 // Needs to handle 2 possible output states; invalid input throws:
@@ -84,6 +84,14 @@ export const buildEstimatedPreRoundCapTable = (stakeHolders: StakeHolder[], roun
 
   const preMoneySafeShares = safeCapTable.reduce((acc, safe) => acc + (safe.shares ?? 0), 0)
   const postSharePct = safeCapTable.reduce((acc, safe) => acc + (safe.ownershipPct ?? 0), 0)
+  // validateStakeholders only sees contractual caps. Uncapped SAFEs (estimated at
+  // maxCap) and MFN SAFEs (estimated at an elected cap) can still reach 100%.
+  if (postSharePct >= 1) {
+    throw new CalculationError(
+      "INVALID_INPUT",
+      "estimated post-money and fixed-percentage SAFE ownership must be below 100%, including uncapped SAFEs estimated at the highest cap and MFN SAFEs at their elected cap",
+    );
+  }
   // Now we can use this to get pre-money ownership Pct
   const postShareCapitilization = roundShares((preMoneyShares + preMoneySafeShares) / ( 1 - postSharePct), roundingStrategy)
 

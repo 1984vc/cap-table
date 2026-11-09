@@ -171,3 +171,32 @@ describe("Building a priced-round pre-round cap table with common shareholders, 
     expect(safes[2].type === CapTableRowType.Safe && safes[2].ownershipPct?.toFixed(8)).toEqual("0.07727277");
   });
 });
+
+describe("estimated pre-round SAFE over-allocation", () => {
+  const safe = (investment: number, cap: number, conversionType: SAFENote["conversionType"]): SAFENote => ({
+    name: `${conversionType} ${investment}`,
+    investment,
+    discount: 0,
+    cap,
+    conversionType,
+    type: CapTableRowType.Safe,
+  });
+
+  test.each([
+    ["an uncapped SAFE estimated at the highest cap", [safe(600_000, 0, "post"), safe(500_000, 1_000_000, "post")]],
+    ["an uncapped SAFE reaching exactly 100%", [safe(500_000, 0, "post"), safe(500_000, 1_000_000, "post")]],
+    ["an MFN SAFE electing a later cap", [safe(600_000, 0, "mfn"), safe(500_000, 1_000_000, "post")]],
+  ])("rejects %s", (_name, safes) => {
+    expect(() => buildEstimatedPreRoundCapTable([...commonFixture, ...safes]))
+      .toThrowError(expect.objectContaining({ code: "INVALID_INPUT" }));
+  });
+
+  test("still estimates an uncapped SAFE below 100%", () => {
+    const table = buildEstimatedPreRoundCapTable([
+      ...commonFixture,
+      safe(400_000, 0, "post"),
+      safe(500_000, 1_000_000, "post"),
+    ]);
+    expect(table.safes.every((row) => (row.shares ?? 0) > 0)).toBe(true);
+  });
+});
